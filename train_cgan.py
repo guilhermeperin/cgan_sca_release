@@ -17,6 +17,10 @@ class TrainCGAN:
         self.models = models
         self.dir_results = dir_results
 
+        self.max_snr_share_1 = []
+        self.max_snr_share_2 = []
+        self.max_snr_share_3 = []
+
         """ Guessing entropy, Ntraces_GE = 1, Perceived Information """
         self.ge_fake = []
         self.nt_fake = []
@@ -121,6 +125,19 @@ class TrainCGAN:
         else:
             plt.savefig(f"{self.dir_results}/snr_target_features_real_{epoch}.png")
         plt.close()
+
+        if synthetic_traces:
+            self.max_snr_share_1.append(np.max(snr_target_features_share_1))
+            self.max_snr_share_2.append(np.max(snr_target_features_share_2))
+
+            plt.plot(self.max_snr_share_1, label="Max SNR Share 1")
+            plt.plot(self.max_snr_share_2, label="Max SNR Share 2")
+            plt.legend()
+            plt.xlabel("Epochs")
+            plt.ylabel("SNR")
+            plt.savefig(f"{self.dir_results}/max_snr_share_2_{epoch}.png")
+            plt.close()
+            np.savez(f"{self.dir_results}/max_snr_shares.npz", max_snr_share_1=self.max_snr_share_1, max_snr_share_2=self.max_snr_share_2)
 
     def attack_eval(self, epoch):
         ge_real_ta, nt_real_ta, pi_real_ta, ge_vector_real_ta = template_attack(self.datasets)

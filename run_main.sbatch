@@ -36,6 +36,7 @@ n_profiling_target=50000
 target_byte_reference=2
 target_byte_target=2
 leakage_model=ID
+features=100
 std_gaussian_noise_reference=0
 std_gaussian_noise_target=0
 
@@ -79,6 +80,10 @@ do
         leakage_model="$2"
         shift
         ;;
+        --features)
+        features="$2"
+        shift
+        ;;
         --std_gaussian_noise_reference)
         std_gaussian_noise_reference="$2"
         shift
@@ -104,10 +109,11 @@ echo "n_profiling_target is set to: $n_profiling_target"
 echo "target_byte_reference is set to: $target_byte_reference"
 echo "target_byte_target is set to: $target_byte_target"
 echo "leakage_model is set to: $leakage_model"
-echo "std_gaussian_noise_reference is set to: std_gaussian_noise_reference"
+echo "features is set to: $features"
+echo "std_gaussian_noise_reference is set to: $std_gaussian_noise_reference"
 echo "std_gaussian_noise_target is set to: $std_gaussian_noise_target"
 
-srun python main.py --dataset_reference $dataset_reference --dataset_reference_dim $dataset_reference_dim --n_profiling_reference $n_profiling_reference --dataset_target $dataset_target --dataset_target_dim $dataset_target_dim --n_profiling_target $n_profiling_target --target_byte_reference $target_byte_reference --target_byte_target $target_byte_target --features 100 --leakage_model $leakage_model --std_gaussian_noise_reference $std_gaussian_noise_reference --std_gaussian_noise_target $std_gaussian_noise_target
+srun python main.py --dataset_reference $dataset_reference --dataset_reference_dim $dataset_reference_dim --n_profiling_reference $n_profiling_reference --dataset_target $dataset_target --dataset_target_dim $dataset_target_dim --n_profiling_target $n_profiling_target --target_byte_reference $target_byte_reference --target_byte_target $target_byte_target --features $features --leakage_model $leakage_model --std_gaussian_noise_reference $std_gaussian_noise_reference --std_gaussian_noise_target $std_gaussian_noise_target
 exit 0
 
 
