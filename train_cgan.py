@@ -221,10 +221,10 @@ class TrainCGAN:
         plt.xscale('log')
         plt.xlabel("Attack Traces")
         plt.ylabel("Guessing Entropy")
-        plt.savefig(f"{self.dir_results}/ge.png")
+        plt.savefig(f"{self.dir_results}/ge_epoch_{epoch}.png")
         plt.close()
 
-        np.savez(f"{self.dir_results}/ge_vector.npz",
+        np.savez(f"{self.dir_results}/ge_vector_epoch_{epoch}.npz",
                  ge_vector_fake=ge_vector_fake,
                  ge_vector_real=ge_vector_real,
                  ge_vector_real_original=ge_vector_real_original,

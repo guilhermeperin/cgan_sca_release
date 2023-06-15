@@ -5,8 +5,8 @@
 #####################
 
 #SBATCH --job-name=cgan_features
-#SBATCH --qos=short
-#SBATCH --time=04:00:00
+#SBATCH --qos=medium
+#SBATCH --time=08:00:00
 
 # 500MB memory per core
 # this is a hard limit
