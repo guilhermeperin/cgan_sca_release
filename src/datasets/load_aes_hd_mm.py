@@ -88,7 +88,10 @@ class ReadAESHDMM:
 
         self.profiling_keys = None
         self.profiling_plaintexts = None
+        self.profiling_masks = None
         self.attack_plaintexts = None
+        self.attack_masks = None
+        self.attack_keys = None
 
         self.load_dataset()
 
@@ -122,11 +125,9 @@ class ReadAESHDMM:
 
         self.profiling_keys = profiling_keys
         self.profiling_plaintexts = profiling_plaintexts
-        self.profiling_ciphertexts = profiling_ciphertexts
         self.profiling_masks = profiling_masks
         self.attack_keys = attack_keys
         self.attack_plaintexts = attack_plaintexts
-        self.attack_ciphertexts = attack_ciphertexts
         self.attack_masks = attack_masks
 
         self.x_profiling = profiling_samples[:, self.fs:self.fs + self.ns]
