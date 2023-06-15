@@ -25,7 +25,7 @@ class CreateModels:
                 "layers": random.choice([3, 4, 5, 6]),
                 "activation": random.choice(["elu", "selu", "relu", "leaky_relu"]),
                 "learning_rate": random.choice([0.001, 0.0025, 0.0005, 0.0001, 0.0002, 0.00025, 0.00005]),
-                "bn": random.choice(True, False),
+                "bn": random.choice([True, False]),
                 "kernel_initializer": random.choice(
                     ["random_uniform", "he_uniform", "glorot_uniform", "random_normal", "he_normal", "glorot_normal"]),
                 "dropout": random.choice([0, 0.1, 0.2, 0.3, 0.4, 0.5]),
@@ -37,7 +37,7 @@ class CreateModels:
                 "learning_rate": random.choice([0.001, 0.0025, 0.0005, 0.0001, 0.0002, 0.00025, 0.00005]),
                 "kernel_initializer": random.choice(
                     ["random_uniform", "he_uniform", "glorot_uniform", "random_normal", "he_normal", "glorot_normal"]),
-                "bn": random.choice(True, False),
+                "bn": random.choice([True, False]),
                 "dropout": random.choice([0, 0.1, 0.2, 0.3, 0.4, 0.5]),
             }
             self.generator_optimizer = tf.keras.optimizers.Adam(self.hp_g["learning_rate"], beta_1=0.5)
@@ -212,7 +212,7 @@ class CreateModels:
                 x = BatchNormalization()(x)
             if self.hp_g["dropout"] > 0:
                 x = Dropout(self.hp_g["dropout"])(x)
-        out_layer = Dense(output_dim, activation="linear", kernel_initializer=self.hp_g["kernel_initializer"])
+        out_layer = Dense(output_dim, activation="linear", kernel_initializer=self.hp_g["kernel_initializer"])(x)
         model = Model([input_layer], out_layer)
         model.summary()
         return model

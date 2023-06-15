@@ -1,5 +1,5 @@
 import argparse
-import RandomCGANSCA
+from RandomCGANSCA import *
 
 # dataset_root_path = "/tudelft.net/staff-umbrella/dlsca/Guilherme"
 # results_root_path = "/tudelft.net/staff-umbrella/dlsca/Guilherme/paper_9_gan_results"
