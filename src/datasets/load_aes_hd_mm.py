@@ -239,8 +239,8 @@ class ReadAESHDMM:
         """ get key byte from round key 10 """
         k_i = [ki[10][self.target_byte] for ki in round_keys]
         if self.leakage_model == "HW":
-            return [bin(inv_s_box[int(ci) ^ int(ki)] ^ int(cj)).count("1") for ci, cj, ki in
-                    zip(np.asarray(c_i[:]), np.asarray(c_j[:]), np.asarray(k_i[:]))]
+            return np.array([bin(inv_s_box[int(ci) ^ int(ki)] ^ int(cj)).count("1") for ci, cj, ki in
+                             zip(np.asarray(c_i[:]), np.asarray(c_j[:]), np.asarray(k_i[:]))])
         else:
             return np.array([inv_s_box[int(ci) ^ int(ki)] ^ int(cj) for ci, cj, ki in
                              zip(np.asarray(c_i[:]), np.asarray(c_j[:]), np.asarray(k_i[:]))])
