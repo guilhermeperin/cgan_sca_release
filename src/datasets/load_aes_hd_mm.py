@@ -98,13 +98,13 @@ class ReadAESHDMM:
     def load_dataset(self):
         in_file = h5py.File(self.file_path, "r")
 
-        profiling_samples = np.array(in_file['Profiling_traces/traces'], dtype=np.float64)
+        profiling_samples = np.array(in_file['Profiling_traces/traces'][:self.n_profiling])
+        attack_samples = np.array(in_file['Attack_traces/traces'][:self.n_attack + self.n_validation])
         profiling_plaintext = in_file['Profiling_traces/metadata']['plaintext']
         profiling_ciphertext = in_file['Profiling_traces/metadata']['ciphertext']
         profiling_key = in_file['Profiling_traces/metadata']['key']
         profiling_mask = in_file['Profiling_traces/metadata']['masks']
 
-        attack_samples = np.array(in_file['Attack_traces/traces'], dtype=np.float64)
         attack_plaintext = in_file['Attack_traces/metadata']['plaintext']
         attack_ciphertext = in_file['Attack_traces/metadata']['ciphertext']
         attack_key = in_file['Attack_traces/metadata']['key']
@@ -242,8 +242,8 @@ class ReadAESHDMM:
             return [bin(inv_s_box[int(ci) ^ int(ki)] ^ int(cj)).count("1") for ci, cj, ki in
                     zip(np.asarray(c_i[:]), np.asarray(c_j[:]), np.asarray(k_i[:]))]
         else:
-            return [inv_s_box[int(ci) ^ int(ki)] ^ int(cj) for ci, cj, ki in
-                    zip(np.asarray(c_i[:]), np.asarray(c_j[:]), np.asarray(k_i[:]))]
+            return np.array([inv_s_box[int(ci) ^ int(ki)] ^ int(cj) for ci, cj, ki in
+                             zip(np.asarray(c_i[:]), np.asarray(c_j[:]), np.asarray(k_i[:]))])
 
     def create_labels_key_guess(self, ciphertexts):
         labels_key_hypothesis = np.zeros((256, len(ciphertexts)), dtype='int64')
