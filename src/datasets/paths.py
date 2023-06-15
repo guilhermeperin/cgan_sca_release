@@ -42,7 +42,7 @@ def get_dataset_filepath(dataset_root_folder, dataset_name, npoi, leakage_model)
                 2200: f"{dataset_root_folder}/ches_ctf.h5",
             },
             "aes_hd_mm": {
-                3250: f"{dataset_root_folder}/aes_hd_mm.h5",
+                3125: f"{dataset_root_folder}/aes_hd_mm.h5",
             }
         }
     else:
@@ -87,7 +87,7 @@ def get_dataset_filepath(dataset_root_folder, dataset_name, npoi, leakage_model)
                 2200: f"{dataset_root_folder}/ches_ctf.h5",
             },
             "aes_hd_mm": {
-                3250: f"{dataset_root_folder}/aes_hd_mm.h5",
+                3125: f"{dataset_root_folder}/aes_hd_mm.h5",
             }
         }
     return dataset_dict[dataset_name][npoi]
