@@ -1,13 +1,21 @@
 import argparse
 from CGANSCA import *
 
-dataset_root_path = "/tudelft.net/staff-umbrella/dlsca/Guilherme"
-results_root_path = "/tudelft.net/staff-umbrella/dlsca/Guilherme/paper_9_gan_results"
-features_root_path = "/tudelft.net/staff-umbrella/dlsca/Guilherme/cgan_reference_features"
+# dataset_root_path = "/tudelft.net/staff-umbrella/dlsca/Guilherme"
+# results_root_path = "/tudelft.net/staff-umbrella/dlsca/Guilherme/paper_9_gan_results"
+# features_root_path = "/tudelft.net/staff-umbrella/dlsca/Guilherme/cgan_reference_features"
 
 # dataset_root_path = "D:/traces"
 # results_root_path = "D:/postdoc/paper_cgan_features/results"
 # results_root_path = "D:/postdoc/paper_cgan_features/cgan_reference_features"
+
+dataset_root_path = "C:/Users/Sengim/Datasets"
+results_root_path = "C:/Users/Sengim/Datasets/paper_9_gan_results"
+features_root_path = "C:/Users/Sengim/Datasets/paper_9_gan_features"
+
+# dataset_root_path = "/data1/karayalcins/datasets"
+# results_root_path = "/data1/karayalcins/datasets/paper_9_gan_results"
+# features_root_path = "/data1/karayalcins/datasets/paper_9_gan_features"
 
 
 def get_arguments():
