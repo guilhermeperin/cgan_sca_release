@@ -34,6 +34,8 @@ class TrainCGAN:
         self.nt_real_ta = []
         self.pi_real_ta = []
 
+        self.x_axis_epochs = []
+
         """ Accuracy for real and synthetic data """
         self.real_acc = []
         self.fake_acc = []
@@ -141,20 +143,22 @@ class TrainCGAN:
         self.nt_real_ta.append(nt_real_ta)
         self.pi_real_ta.append(pi_real_ta)
 
-        plt.plot(epoch + 1, self.ge_fake, label="fake")
-        plt.plot(epoch + 1, self.ge_real, label="real")
-        plt.plot(epoch + 1, self.ge_real_original, label="real raw")
-        plt.plot(epoch + 1, self.ge_real_ta, label="real TA (LDA)")
+        self.x_axis_epochs.append(epoch + 1)
+
+        plt.plot(self.x_axis_epochs, self.ge_fake, label="fake")
+        plt.plot(self.x_axis_epochs, self.ge_real, label="real")
+        plt.plot(self.x_axis_epochs, self.ge_real_original, label="real raw")
+        plt.plot(self.x_axis_epochs, self.ge_real_ta, label="real TA (LDA)")
         plt.legend()
         plt.xlabel("CGAN Training Epoch")
         plt.ylabel("Guessing Entropy")
         plt.savefig(f"{self.dir_results}/ge.png")
         plt.close()
 
-        plt.plot(epoch + 1, self.nt_fake, label="fake")
-        plt.plot(epoch + 1, self.nt_real, label="real")
-        plt.plot(epoch + 1, self.nt_real_original, label="real raw")
-        plt.plot(epoch + 1, self.nt_real_ta, label="TA (LDA)")
+        plt.plot(self.x_axis_epochs, self.nt_fake, label="fake")
+        plt.plot(self.x_axis_epochs, self.nt_real, label="real")
+        plt.plot(self.x_axis_epochs, self.nt_real_original, label="real raw")
+        plt.plot(self.x_axis_epochs, self.nt_real_ta, label="TA (LDA)")
         plt.legend()
         plt.xlabel("CGAN Training Epoch")
         plt.ylabel("Number of Traces for GE=1")
@@ -162,10 +166,10 @@ class TrainCGAN:
         plt.savefig(f"{self.dir_results}/nt.png")
         plt.close()
 
-        plt.plot(epoch + 1, self.pi_fake, label="fake")
-        plt.plot(epoch + 1, self.pi_real, label="real")
-        plt.plot(epoch + 1, self.pi_real_original, label="real raw")
-        plt.plot(epoch + 1, self.pi_real_ta, label="TA (LDA)")
+        plt.plot(self.x_axis_epochs, self.pi_fake, label="fake")
+        plt.plot(self.x_axis_epochs, self.pi_real, label="real")
+        plt.plot(self.x_axis_epochs, self.pi_real_original, label="real raw")
+        plt.plot(self.x_axis_epochs, self.pi_real_ta, label="TA (LDA)")
         plt.legend()
         plt.xlabel("CGAN Training Epoch")
         plt.ylabel("Perceived Information")

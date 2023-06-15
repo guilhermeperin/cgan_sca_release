@@ -13,7 +13,7 @@
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=1
 #SBATCH --gres=jobspernode:four:1
-#SBATCH --mem-per-cpu=15000MB
+#SBATCH --mem-per-cpu=50000MB
 #SBATCH --gres=gpu:turing:1
 
 # you may not place bash commands before the last SBATCH directive
