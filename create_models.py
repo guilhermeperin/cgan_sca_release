@@ -9,6 +9,7 @@ import tensorflow.keras.backend as K
 import random
 
 
+
 class CreateModels:
 
     def __init__(self, args, random_hp=False):
@@ -17,34 +18,46 @@ class CreateModels:
         self.fake_accuracy_metric = BinaryAccuracy()
         self.cross_entropy = BinaryCrossentropy(from_logits=True)
         self.cross_entropy_disc = BinaryCrossentropy(from_logits=True)
-        self.generator_optimizer = tf.keras.optimizers.Adam(0.0002, beta_1=0.5)
-        self.discriminator_optimizer = tf.keras.optimizers.Adam(0.0025, beta_1=0.5)
-
+        
         if random_hp:
             self.hp_d = {
-                "neurons": random.choice([40, 50, 100]),
+                "neurons": random.choice([40, 50, 100, 200]),
                 "layers": random.choice([3, 4, 5, 6]),
-                "activation": random.choice(["elu", "selu", "relu"]),
+                "activation": random.choice(["elu", "selu", "relu", "leaky_relu"]),
                 "learning_rate": random.choice([0.001, 0.0025, 0.0005, 0.0001, 0.0002, 0.00025, 0.00005]),
+                "bn": random.choice(True, False),
                 "kernel_initializer": random.choice(
                     ["random_uniform", "he_uniform", "glorot_uniform", "random_normal", "he_normal", "glorot_normal"]),
                 "dropout": random.choice([0, 0.1, 0.2, 0.3, 0.4, 0.5]),
             }
             self.hp_g = {
-                "neurons": random.choice([40, 50, 100]),
-                "layers": random.choice([3, 4, 5, 6]),
-                "activation": random.choice(["elu", "selu", "relu"]),
+                "neurons": random.choice([40, 50, 100, 200, 400]),
+                "layers": random.choice([2, 3, 4,5]),
+                "activation": random.choice(["elu", "selu", "relu", "linear"]),
                 "learning_rate": random.choice([0.001, 0.0025, 0.0005, 0.0001, 0.0002, 0.00025, 0.00005]),
                 "kernel_initializer": random.choice(
                     ["random_uniform", "he_uniform", "glorot_uniform", "random_normal", "he_normal", "glorot_normal"]),
+                "bn": random.choice(True, False),
                 "dropout": random.choice([0, 0.1, 0.2, 0.3, 0.4, 0.5]),
             }
+            self.generator_optimizer = tf.keras.optimizers.Adam(self.hp_g["learning_rate"], beta_1=0.5)
+            self.discriminator_optimizer = tf.keras.optimizers.Adam(self.hp_g["learning_rate"], beta_1=0.5)
+            self.discriminator = self.define_discriminator_random(args["features"],
+                                                        n_classes=9 if args["leakage_model"] == "HW" else 256)
+            # create the generator
+            self.generator = self.define_mlp_generator_random(args["dataset_target_dim"], args["features"])
+            
+        else:
+            self.generator_optimizer = tf.keras.optimizers.Adam(0.0002, beta_1=0.5)
+            self.discriminator_optimizer = tf.keras.optimizers.Adam(0.0025, beta_1=0.5)
+            # create the discriminator
+            self.discriminator = self.define_discriminator(args["features"],
+                                                        n_classes=9 if args["leakage_model"] == "HW" else 256)
+            # create the generator
+            self.generator = self.define_generator(args["dataset_target_dim"], args["features"])
 
-        # create the discriminator
-        self.discriminator = self.define_discriminator(args["features"],
-                                                       n_classes=9 if args["leakage_model"] == "HW" else 256)
-        # create the generator
-        self.generator = self.define_generator(args["dataset_target_dim"], args["features"])
+
+
 
     def discriminator_loss(self, real, fake):
         real_loss = self.cross_entropy_disc(tf.ones_like(real), real)
@@ -188,6 +201,59 @@ class CreateModels:
         stddev = 0.01  # Standard deviation of the Gaussian distribution
         noise = K.random_normal(shape=K.shape(x), mean=mean, stddev=stddev)
         return x + noise
+    
+
+    def define_mlp_generator_random(self, input_dim: int, output_dim: int):
+        input_layer = Input(shape=(input_dim,))
+        x = None
+        for i in range(self.hp_g["layers"]):
+            x = Dense( self.hp_g["neurons"], activation=self.hp_g["activation"], kernel_initializer=self.hp_g["kernel_initializer"])(input_layer if i == 0 else x)
+            if self.hp_g["bn"]:
+                x = BatchNormalization()(x)
+            if self.hp_g["dropout"] > 0:
+                x = Dropout(self.hp_g["dropout"])(x)
+        out_layer = Dense(output_dim, activation="linear", kernel_initializer=self.hp_g["kernel_initializer"])
+        model = Model([input_layer], out_layer)
+        model.summary()
+        return model
+    
+    def define_discriminator_random(self,features_dim: int,  n_classes=256):
+        # label input
+        in_label = Input(shape=1)
+        l1 = Embedding(n_classes, 256)(in_label)
+        if self.hp_d["activation"] == "leaky_relu":
+            l1 = Dense(self.hp_d["neurons"], activation=None, kernel_initializer=self.hp_d["kernel_initializer"])(l1)
+            l1 = LeakyReLU()(l1)
+        else:
+            l1 = Dense(self.hp_d["neurons"], activation=self.hp_d["activation"], kernel_initializer=self.hp_d["kernel_initializer"])(l1)
+        l1 = Flatten()(l1)
+
+        in_features = Input(shape=features_dim)
+        # input_traces = Input(shape=self.traces_dim)
+
+        # merge = Concatenate()([input_traces, l1, in_features])
+        merge = Concatenate()([l1, in_features])
+
+        x = None
+        for l_i in range(self.hp_d["layers"]):
+            if self.hp_d["activation"] == "leaky_relu":
+                x = Dense(self.hp_d["neurons"], activation=None, kernel_initializer=self.hp_d["kernel_initializer"])(
+                    merge if l_i == 0 else x)
+                x = LeakyReLU()(x)
+            else: 
+                x = Dense(self.hp_d["neurons"], activation=self.hp_d["activation"], kernel_initializer=self.hp_d["kernel_initializer"])(
+                    merge if l_i == 0 else x)
+            
+            if self.hp_g["bn"]:
+                x = BatchNormalization()(x)
+            if self.hp_d["dropout"] > 0:
+                x = Dropout(self.hp_d["dropout"])(x)
+        # output
+        out_layer = Dense(1, activation='sigmoid')(x)
+        model = Model([in_label, in_features], out_layer)
+        # model.summary()
+        return model
+    
 
     # define the standalone generator model
     def define_generator(self, input_dim: int, output_dim: int, n_classes=256):

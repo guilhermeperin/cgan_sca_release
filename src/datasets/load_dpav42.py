@@ -181,10 +181,10 @@ class ReadDPAV42:
 
         share1_profiling = np.zeros((16, n_p))
         share2_profiling = np.zeros((16, n_p))
-        target_profiling = np.zeros((16, len(profiling_plaintext)))
+        target_profiling = np.zeros((16, n_p))
         share1_attack = np.zeros((16, n_a))
         share2_attack = np.zeros((16, n_a))
-        target_attack = np.zeros((16, len(attack_plaintext)))
+        target_attack = np.zeros((16, n_a))
 
         profiling_masks = profiling_masks[:n_p]
         profiling_key = profiling_key[:n_p]
