@@ -140,7 +140,7 @@ class TrainCGAN:
             plt.legend()
             plt.xlabel("Epochs")
             plt.ylabel("SNR")
-            plt.savefig(f"{self.dir_results}/max_snr_share_2_{epoch}.png")
+            plt.savefig(f"{self.dir_results}/max_snr_shares.png")
             plt.close()
             np.savez(f"{self.dir_results}/max_snr_shares.npz", max_snr_share_1=self.max_snr_share_1, max_snr_share_2=self.max_snr_share_2)
 
