@@ -17,11 +17,11 @@ class TrainCGAN:
         self.models = models
         self.dir_results = dir_results
 
+        """ Metrics to assess quality of profiling attack: Max SNR, Guessing entropy, Ntraces_GE = 1, Perceived Information """
         self.max_snr_share_1 = []
         self.max_snr_share_2 = []
         self.max_snr_share_3 = []
 
-        """ Guessing entropy, Ntraces_GE = 1, Perceived Information """
         self.ge_fake = []
         self.nt_fake = []
         self.pi_fake = []
@@ -38,11 +38,16 @@ class TrainCGAN:
         self.nt_real_ta = []
         self.pi_real_ta = []
 
+        """ Just for plot """
         self.x_axis_epochs = []
 
         """ Accuracy for real and synthetic data """
         self.real_acc = []
         self.fake_acc = []
+
+        """ Generator and Discriminator Losses """
+        self.g_loss = []
+        self.d_loss = []
 
     def generate_reference_samples(self, batch_size):
         rnd = np.random.randint(0, self.datasets.dataset_reference.n_profiling - batch_size)
@@ -257,6 +262,8 @@ class TrainCGAN:
                 if (b + 1) % 100 == 0:
                     self.real_acc.append(self.models.real_accuracy_metric.result())
                     self.fake_acc.append(self.models.fake_accuracy_metric.result())
+                    self.g_loss.append(g_loss)
+                    self.d_loss.append(d_loss)
 
                     plt.plot(self.real_acc, label="Real")
                     plt.plot(self.fake_acc, label="Fake")
@@ -266,7 +273,9 @@ class TrainCGAN:
                     plt.close()
                     print(
                         f"epoch: {e}, batch: {b}, d_loss: {d_loss}, g_loss: {g_loss}, real_acc: {self.models.real_accuracy_metric.result()}, fake_acc: {self.models.fake_accuracy_metric.result()}")
-                    np.savez(f"{self.dir_results}/acc.npz", real_acc=self.real_acc, fake_acc=self.fake_acc)
+                    np.savez(f"{self.dir_results}/acc_and_loss.npz",
+                             g_loss=self.g_loss, d_loss=self.d_loss,
+                             real_acc=self.real_acc, fake_acc=self.fake_acc)
 
             # Split eval steps up as attacking takes significant time while snr computation is fast
             if e == 0:
