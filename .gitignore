@@ -1,2 +1,4 @@
 update.sh
 venv
+__pycache__/*
+src/datasets/__pycache__/*
