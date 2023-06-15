@@ -21,6 +21,7 @@ class CreateModels:
         
         if random_hp:
             self.hp_d = {
+                "seed": random.randint(0, 1000000000),
                 "neurons": random.choice([40, 50, 100, 200]),
                 "layers": random.choice([3, 4, 5, 6]),
                 "activation": random.choice(["elu", "selu", "relu", "leaky_relu"]),
@@ -31,6 +32,7 @@ class CreateModels:
                 "dropout": random.choice([0, 0.1, 0.2, 0.3, 0.4, 0.5]),
             }
             self.hp_g = {
+                "seed": random.randint(0, 1000000000),
                 "neurons": random.choice([40, 50, 100, 200, 400]),
                 "layers": random.choice([2, 3, 4,5]),
                 "activation": random.choice(["elu", "selu", "relu", "linear"]),
@@ -204,6 +206,7 @@ class CreateModels:
     
 
     def define_mlp_generator_random(self, input_dim: int, output_dim: int):
+        tf.random.set_seed(self.hp_g["seed"])
         input_layer = Input(shape=(input_dim,))
         x = None
         for i in range(self.hp_g["layers"]):
@@ -219,6 +222,7 @@ class CreateModels:
     
     def define_discriminator_random(self,features_dim: int,  n_classes=256):
         # label input
+        tf.random.set_seed(self.hp_d["seed"])
         in_label = Input(shape=1)
         l1 = Embedding(n_classes, 256)(in_label)
         if self.hp_d["activation"] == "leaky_relu":

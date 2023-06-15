@@ -126,3 +126,5 @@ if __name__ == "__main__":
         if nt_result < best_nt_result:
             best_model_folder = cgan.dir_results
 
+    print(f"The results from the best model can be found in {cgan.dir_results}")
+
