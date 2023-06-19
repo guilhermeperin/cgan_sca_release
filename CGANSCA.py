@@ -1,6 +1,5 @@
 from train_cgan import *
 from create_models import *
-from compare_profiling_models import *
 
 
 class CGANSCA:
