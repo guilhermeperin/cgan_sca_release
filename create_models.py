@@ -206,7 +206,7 @@ class CreateModels:
         if self.hp_g["conv"]:
              reshaped = Reshape((input_dim, 1))(input_layer)
              for i in range(self.hp_g["conv_layers"]):
-                 x = Conv1D(self.hp_g["init_filters"]**(i+1), self.hp_g["filter_len"], kernel_initializer=self.hp_g["kernel_initializer"], activation=activation, strides=self.hp_g["conv_stride"], padding='same', name='block1_conv1')(reshaped if x is None else x)
+                 x = Conv1D(self.hp_g["init_filters"]**(i+1), self.hp_g["filter_len"], kernel_initializer=self.hp_g["kernel_initializer"], activation=activation, strides=self.hp_g["conv_stride"], padding='same')(reshaped if x is None else x)
              x = Flatten()(x)
         
         

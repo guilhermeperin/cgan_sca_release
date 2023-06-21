@@ -296,7 +296,7 @@ class TrainCGAN:
             if (e + 1) % 1 == 0:
                 self.compute_snr_target_features(e)
                 # self.attack_eval_synthetic(e)
-            if (e + 1) % 200 == 0:
+            if (e + 1) % self.args["epochs"] == 0:
                 self.attack_eval(e)
                 self.models.generator.save(
                     f"{self.dir_results}/generator_{self.datasets.traces_target_dim}_{self.datasets.traces_reference_dim}_epoch_{e}.h5")
