@@ -1,5 +1,7 @@
 import argparse
 from RandomCGANSCA import *
+from datetime import datetime
+import os
 
 # dataset_root_path = "/tudelft.net/staff-umbrella/dlsca/Guilherme"
 # results_root_path = "/tudelft.net/staff-umbrella/dlsca/Guilherme/paper_9_gan_results"
@@ -117,11 +119,16 @@ if __name__ == "__main__":
         "std_gaussian_noise_target": float(arg_list.std_gaussian_noise_target),
         "num_models": int(arg_list.num_models),
     }
-    cgan = RandomCGANSCA(args=arguments)
+    now = datetime.now()
+    results_collection= f"{results_root_path}/random_search_{now.strftime('%d_%m_%Y_%H')}"
+    if not os.path.exists(results_collection):
+        os.mkdir(results_collection)
+    cgan = RandomCGANSCA(args=arguments, main_path=results_collection)
     best_nt_result = cgan.train_cgan()
     best_model_folder = cgan.dir_results
+    print(best_model_folder)
     for i in range(arguments["num_models"]-1):
-        cgan = RandomCGANSCA(args=arguments)
+        cgan = RandomCGANSCA(args=arguments, main_path= results_collection)
         nt_result = cgan.train_cgan()
         if nt_result < best_nt_result:
             best_model_folder = cgan.dir_results

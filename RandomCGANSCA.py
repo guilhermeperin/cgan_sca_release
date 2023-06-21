@@ -8,7 +8,7 @@ class RandomCGANSCA:
     def __init__(self, **kwargs):
         self.args = kwargs['args']
         self.models = CreateModels(self.args, random_hp=True)
-        self.main_path = self.args["results_root_path"]
+        self.main_path = kwargs["main_path"] 
 
     def train_cgan(self):
         self.dir_results = create_directory_results(self.args, self.main_path)

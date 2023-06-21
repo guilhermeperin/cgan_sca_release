@@ -44,6 +44,8 @@ class TrainCGAN:
         """ Accuracy for real and synthetic data """
         self.real_acc = []
         self.fake_acc = []
+        self.real_acc_per_epoch = []
+        self.fake_acc_per_epoch = []
 
         """ Generator and Discriminator Losses """
         self.g_loss = []
@@ -65,16 +67,16 @@ class TrainCGAN:
     def train_step(self, traces_batch, label_traces, features, label_features):
 
         with tf.GradientTape() as disc_tape:
-            fake_features = self.models.generator(traces_batch)
-            real_output = self.models.discriminator([label_features, features])
-            fake_output = self.models.discriminator([label_traces, fake_features])
+            fake_features = self.models.generator(traces_batch, training=True)
+            real_output = self.models.discriminator([label_features, features], training=True)
+            fake_output = self.models.discriminator([label_traces, fake_features], training=True)
             disc_loss = self.models.discriminator_loss(real_output, fake_output)
         gradients_of_discriminator = disc_tape.gradient(disc_loss, self.models.discriminator.trainable_variables)
         self.models.discriminator_optimizer.apply_gradients(zip(gradients_of_discriminator, self.models.discriminator.trainable_variables))
 
         with tf.GradientTape() as gen_tape:
-            fake_features = self.models.generator(traces_batch)
-            fake_output = self.models.discriminator([label_traces, fake_features])
+            fake_features = self.models.generator(traces_batch, training=True)
+            fake_output = self.models.discriminator([label_traces, fake_features], training=True)
             gen_loss = self.models.generator_loss(fake_output)
         gradients_of_generator = gen_tape.gradient(gen_loss, self.models.generator.trainable_variables)
         self.models.generator_optimizer.apply_gradients(zip(gradients_of_generator, self.models.generator.trainable_variables))
@@ -126,7 +128,8 @@ class TrainCGAN:
         plt.plot(snr_target_features_share_2)
         plt.xlim([1, self.datasets.features_dim])
         if synthetic_traces:
-            plt.savefig(f"{self.dir_results}/snr_target_features_fake_{epoch}.png")
+            if (epoch+1) % 40 == 0:
+                plt.savefig(f"{self.dir_results}/snr_target_features_fake_{epoch}.png")
         else:
             plt.savefig(f"{self.dir_results}/snr_target_features_real_{epoch}.png")
         plt.close()
@@ -134,13 +137,22 @@ class TrainCGAN:
         if synthetic_traces:
             self.max_snr_share_1.append(np.max(snr_target_features_share_1))
             self.max_snr_share_2.append(np.max(snr_target_features_share_2))
-
-            plt.plot(self.max_snr_share_1, label="Max SNR Share 1")
-            plt.plot(self.max_snr_share_2, label="Max SNR Share 2")
-            plt.legend()
-            plt.xlabel("Epochs")
-            plt.ylabel("SNR")
-            plt.savefig(f"{self.dir_results}/max_snr_share_2_{epoch}.png")
+            self.real_acc_per_epoch.append(self.models.real_accuracy_metric.result())
+            self.fake_acc_per_epoch.append(self.models.fake_accuracy_metric.result())
+            fig, ax1 = plt.subplots()
+            ax1.set_xlabel("Epochs")
+            ax1.set_ylabel("SNR")
+            ax1.plot(self.max_snr_share_1, label="Max SNR Share 1")
+            ax1.plot(self.max_snr_share_2, label="Max SNR Share 2")
+            ax2 = ax1.twinx()
+            ax2.set_ylabel("Accuracy")
+            ax2.plot(self.real_acc_per_epoch,linestyle='dotted', label="Real Accuracy")
+            ax2.plot(self.fake_acc_per_epoch,linestyle='dotted', label="Fake Accuracy")
+            handles, labels = [(a + b) for a, b in zip(ax1.get_legend_handles_labels(), ax2.get_legend_handles_labels())]
+            fig.legend(handles, labels)
+            fig.tight_layout()
+            
+            plt.savefig(f"{self.dir_results}/max_snr_share_2.png")
             plt.close()
             np.savez(f"{self.dir_results}/max_snr_shares.npz", max_snr_share_1=self.max_snr_share_1, max_snr_share_2=self.max_snr_share_2)
 
@@ -284,7 +296,7 @@ class TrainCGAN:
             if (e + 1) % 1 == 0:
                 self.compute_snr_target_features(e)
                 # self.attack_eval_synthetic(e)
-            if (e + 1) % 50 == 0:
+            if (e + 1) % 200 == 0:
                 self.attack_eval(e)
                 self.models.generator.save(
                     f"{self.dir_results}/generator_{self.datasets.traces_target_dim}_{self.datasets.traces_reference_dim}_epoch_{e}.h5")

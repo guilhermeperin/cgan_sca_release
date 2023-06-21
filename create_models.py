@@ -21,31 +21,32 @@ class CreateModels:
         
         if random_hp:
             self.hp_d = {
-                "seed": random.randint(0, 1000000000),
-                "neurons": random.choice([40, 50, 100, 200]),
-                "layers": random.choice([3, 4, 5, 6]),
-                "activation": random.choice(["elu", "selu", "relu", "leaky_relu"]),
-                "learning_rate": random.choice([0.001, 0.0025, 0.0005, 0.0001, 0.0002, 0.00025, 0.00005]),
-                "bn": random.choice([True, False]),
-                "kernel_initializer": random.choice(
-                    ["random_uniform", "he_uniform", "glorot_uniform", "random_normal", "he_normal", "glorot_normal"]),
-                "dropout": random.choice([0, 0.1, 0.2, 0.3, 0.4, 0.5]),
-            }
+                "disc": random.choice(["bilinear", "dropout"]),
+                }
             self.hp_g = {
                 "seed": random.randint(0, 1000000000),
                 "neurons": random.choice([40, 50, 100, 200, 400]),
                 "layers": random.choice([2, 3, 4,5]),
-                "activation": random.choice(["elu", "selu", "relu", "linear"]),
-                "learning_rate": random.choice([0.001, 0.0025, 0.0005, 0.0001, 0.0002, 0.00025, 0.00005]),
+                "activation": random.choice(["elu", "selu", "relu"]),
+                "learning_rate": random.choice([ 0.0005, 0.0001, 0.0002, 0.00025, 0.00005]),
                 "kernel_initializer": random.choice(
                     ["random_uniform", "he_uniform", "glorot_uniform", "random_normal", "he_normal", "glorot_normal"]),
-                "bn": random.choice([True, False]),
-                "dropout": random.choice([0, 0.1, 0.2, 0.3, 0.4, 0.5]),
+                "conv_stride": random.choice([8, 16, 32]),
+                "lin_activation": random.choice([True, False]),
+                "conv": random.choice([True, False]),
+                "filter_len": random.choice([8, 16, 32, 64, 128]),
+                "init_filters": random.choice([8, 16, 4, 2]),
+                "conv_layers": random.choice([1, 2, 3])
             }
             self.generator_optimizer = tf.keras.optimizers.Adam(self.hp_g["learning_rate"], beta_1=0.5)
-            self.discriminator_optimizer = tf.keras.optimizers.Adam(self.hp_g["learning_rate"], beta_1=0.5)
-            self.discriminator = self.define_discriminator_random(args["features"],
+            self.discriminator_optimizer = tf.keras.optimizers.Adam(0.0025, beta_1=0.5)
+            if self.hp_d["disc"] == "bilinear":
+                 self.discriminator = self.define_discriminator_split_bilinear(args["features"],
                                                         n_classes=9 if args["leakage_model"] == "HW" else 256)
+            else:
+                 self.discriminator = self.define_discriminator(args["features"],
+                                                        n_classes=9 if args["leakage_model"] == "HW" else 256)
+
             # create the generator
             self.generator = self.define_mlp_generator_random(args["dataset_target_dim"], args["features"])
             
@@ -53,10 +54,10 @@ class CreateModels:
             self.generator_optimizer = tf.keras.optimizers.Adam(0.0002, beta_1=0.5)
             self.discriminator_optimizer = tf.keras.optimizers.Adam(0.0025, beta_1=0.5)
             # create the discriminator
-            self.discriminator = self.define_discriminator(args["features"],
+            self.discriminator = self.define_discriminator_split_bilinear(args["features"],
                                                         n_classes=9 if args["leakage_model"] == "HW" else 256)
             # create the generator
-            self.generator = self.define_generator(args["dataset_target_dim"], args["features"])
+            self.generator = self.define_generator_conv(args["dataset_target_dim"], args["features"])
 
 
 
@@ -100,27 +101,19 @@ class CreateModels:
         l1 = LeakyReLU()(l1)
         l1 = Flatten()(l1)
 
-        in_features = Input(shape=(features_dim,))
 
-        half_size = features_dim // 2
-        first_half = Lambda(lambda x: x[:, :half_size])(in_features)
-        second_half = Lambda(lambda x: x[:, half_size:])(in_features)
+        in_features = Input(shape=(features_dim,1))
+        in_features_reshaped = Reshape((1, features_dim//2))(in_features[:, features_dim//2:features_dim])
+        # # input_traces = Input(shape=self.traces_dim)
+        temp = in_features[:, 0:features_dim//2]
         dot_lambda = lambda x_arr: tf.multiply(x_arr[0], x_arr[1])
-        x = Lambda(dot_lambda)([first_half, second_half])
-
-        # Compute dot product
-        # x = Multiply()([first_half, second_half])
-
-        # in_features_reshaped = Reshape((1, features_dim // 2))(in_features[:, features_dim // 2:features_dim])
-        # temp = in_features[:, 0:features_dim // 2]
-        # dot_lambda = lambda x_arr: tf.multiply(x_arr[0], x_arr[1])
-        # in_features_dot = Lambda(dot_lambda)([temp, in_features_reshaped])
-        # # Should be (None, 50, 50)
-        # print(in_features_dot.shape)
-        #
-        # x = Flatten()(in_features_dot)
-        # # Should be (None, 2500(features_dim^2))
-        # print(x.shape)
+        in_features_dot = Lambda(dot_lambda)([temp,in_features_reshaped])
+    #Should be (None, 50, 50)
+        # Should be (None, 50, 50)
+        print(in_features_dot.shape)
+        
+        x = Flatten()(in_features_dot)
+        # Should be (None, 2500(features_dim^2))
         x = Dense(30, kernel_initializer=kern_init)(x)
         x = LeakyReLU()(x)
 
@@ -176,27 +169,27 @@ class CreateModels:
         # model.summary()
         return model
 
-    # define the standalone generator model
-    # def define_generator(self, input_dim: int, output_dim: int, n_classes=256):
-    #     # input_random_data = Input(shape=(self.traces_target_dim,))
-    #     # rnd = Dense(400, activation='elu')(input_random_data)
-    #
-    #     in_traces = Input(shape=(input_dim,))
-    #     reshaped = Reshape((input_dim, 1))(in_traces)
-    #     x = Conv1D(16, 32, kernel_initializer='he_uniform', activation='selu', strides=16, padding='same', name='block1_conv1')(reshaped)
-    #     # x = BatchNormalization()(x)
-    #     # x = Conv1D(8, 11, kernel_initializer='he_uniform', activation='relu',strides=2,  padding='same', name='block1_conv2')(x)
-    #     # x = BatchNormalization()(x)
-    #     # x = Conv1D(16, 11, kernel_initializer='he_uniform', activation='relu',strides=2,  padding='same', name='block1_conv3')(x)
-    #     # x = BatchNormalization()(x)
-    #     x = Flatten(name='flatten')(x)
-    #     x = Dense(50, activation='selu')(x)
-    #     # x = Dropout(0.2)(x)
-    #     out_layer = Dense(output_dim, activation='linear')(x)
-    #
-    #     model = Model([in_traces], out_layer)
-    #     model.summary()
-    #     return model
+    #define the standalone generator model
+    def define_generator_conv(self, input_dim: int, output_dim: int, n_classes=256):
+        # input_random_data = Input(shape=(self.traces_target_dim,))
+        # rnd = Dense(400, activation='elu')(input_random_data)
+    
+        in_traces = Input(shape=(input_dim,))
+        reshaped = Reshape((input_dim, 1))(in_traces)
+        x = Conv1D(16, 32, kernel_initializer='he_uniform', activation='selu', strides=16, padding='same', name='block1_conv1')(reshaped)
+        # x = BatchNormalization()(x)
+        # x = Conv1D(8, 11, kernel_initializer='he_uniform', activation='relu',strides=2,  padding='same', name='block1_conv2')(x)
+        # x = BatchNormalization()(x)
+        # x = Conv1D(16, 11, kernel_initializer='he_uniform', activation='relu',strides=2,  padding='same', name='block1_conv3')(x)
+        # x = BatchNormalization()(x)
+        x = Flatten(name='flatten')(x)
+        x = Dense(output_dim, activation='selu')(x)
+        # x = Dropout(0.2)(x)
+        out_layer = Dense(output_dim, activation='linear')(x)
+    
+        model = Model([in_traces], out_layer)
+        model.summary()
+        return model
 
     def add_gaussian_noise(self, x):
         mean = 0.0  # Mean of the Gaussian distribution
@@ -208,13 +201,17 @@ class CreateModels:
     def define_mlp_generator_random(self, input_dim: int, output_dim: int):
         tf.random.set_seed(self.hp_g["seed"])
         input_layer = Input(shape=(input_dim,))
+        activation = "linear" if self.hp_g["lin_activation"] else self.hp_g["activation"]
         x = None
+        if self.hp_g["conv"]:
+             reshaped = Reshape((input_dim, 1))(input_layer)
+             for i in range(self.hp_g["conv_layers"]):
+                 x = Conv1D(self.hp_g["init_filters"]**(i+1), self.hp_g["filter_len"], kernel_initializer=self.hp_g["kernel_initializer"], activation=activation, strides=self.hp_g["conv_stride"], padding='same', name='block1_conv1')(reshaped if x is None else x)
+             x = Flatten()(x)
+        
+        
         for i in range(self.hp_g["layers"]):
-            x = Dense( self.hp_g["neurons"], activation=self.hp_g["activation"], kernel_initializer=self.hp_g["kernel_initializer"])(input_layer if i == 0 else x)
-            if self.hp_g["bn"]:
-                x = BatchNormalization()(x)
-            if self.hp_g["dropout"] > 0:
-                x = Dropout(self.hp_g["dropout"])(x)
+            x = Dense( self.hp_g["neurons"], activation=activation, kernel_initializer=self.hp_g["kernel_initializer"])(input_layer if x is None else x)
         out_layer = Dense(output_dim, activation="linear", kernel_initializer=self.hp_g["kernel_initializer"])(x)
         model = Model([input_layer], out_layer)
         model.summary()
@@ -255,7 +252,7 @@ class CreateModels:
         # output
         out_layer = Dense(1, activation='sigmoid')(x)
         model = Model([in_label, in_features], out_layer)
-        # model.summary()
+        model.summary()
         return model
     
 
