@@ -83,7 +83,10 @@ def get_arguments():
 
     """ std_gaussian_noise_target: standard deviation for Gaussian noise artificially added to target dataset (default mean is 0) """
     parser.add_argument("-std_gaussian_noise_target", "--std_gaussian_noise_target", default=0.0)
-
+    
+    """ discriminator: name of discriminator to use (possible values: bilinear, dropout) """
+    parser.add_argument("-discriminator", "--discriminator", default="bilinear")
+    
     return parser.parse_args()
 
 
@@ -112,6 +115,7 @@ if __name__ == "__main__":
         "batch_size": int(arg_list.batch_size),
         "std_gaussian_noise_reference": float(arg_list.std_gaussian_noise_reference),
         "std_gaussian_noise_target": float(arg_list.std_gaussian_noise_target),
+        "discriminator": arg_list.discriminator,
     }
 
     cgan = RandomCGANSCA(args=arguments)

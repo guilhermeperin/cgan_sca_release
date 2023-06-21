@@ -40,7 +40,7 @@ class CreateModels:
             }
             self.generator_optimizer = tf.keras.optimizers.Adam(self.hp_g["learning_rate"], beta_1=0.5)
             self.discriminator_optimizer = tf.keras.optimizers.Adam(0.0025, beta_1=0.5)
-            if self.hp_d["disc"] == "bilinear":
+            if args["discriminator"] == "bilinear":
                  self.discriminator = self.define_discriminator_split_bilinear(args["features"],
                                                         n_classes=9 if args["leakage_model"] == "HW" else 256)
             else:
