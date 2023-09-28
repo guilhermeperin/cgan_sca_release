@@ -60,7 +60,17 @@ class TrainCGAN:
     def generate_target_samples(self, batch_size):
         rnd = np.random.randint(0, self.datasets.dataset_target.n_profiling - batch_size)
         traces = self.datasets.dataset_target.x_profiling[rnd:rnd + batch_size]
+        # ns = len(traces[0])
+        # for trace_index in range(batch_size):
+        #     shift = random.randint(-50, 50)
+        #     if shift > 0:
+        #         traces[trace_index][0:ns - shift] = traces[trace_index][shift:ns]
+        #         traces[trace_index][ns - shift:ns] = traces[trace_index][0:shift]
+        #     else:
+        #         traces[trace_index][0:abs(shift)] = traces[trace_index][ns - abs(shift):ns]
+        #         traces[trace_index][abs(shift):ns] = traces[trace_index][0:ns - abs(shift)]
         labels = self.datasets.dataset_target.profiling_labels[rnd:rnd + batch_size]
+        #labels = np.array([self.datasets.dataset_target.profiling_plaintexts[i, self.datasets.dataset_target.target_byte] for i in range(rnd,rnd + batch_size)])
         return [traces, labels]
 
     @tf.function
@@ -88,21 +98,35 @@ class TrainCGAN:
 
     def compute_snr_reference_features(self):
         batch_size_reference = 3000
-
-        # prepare traces from target dataset
         rnd_reference = random.randint(0, len(self.datasets.dataset_reference.x_profiling) - batch_size_reference)
         features_reference = self.datasets.features_reference_profiling[rnd_reference:rnd_reference + batch_size_reference]
+        snr_reference_features_share_1, snr_reference_features_share_2 = [], []
+        if self.args["dataset_reference"] == "simulate":
 
-        snr_reference_features_share_1 = snr_fast(features_reference,
-                                                  self.datasets.dataset_reference.share1_profiling[self.datasets.target_byte_reference,
-                                                  rnd_reference:rnd_reference + batch_size_reference])
-        snr_reference_features_share_2 = snr_fast(features_reference,
-                                                  self.datasets.dataset_reference.share2_profiling[self.datasets.target_byte_reference,
-                                                  rnd_reference:rnd_reference + batch_size_reference])
+            snr_reference_features_share_1 = snr_fast(features_reference,
+                                                    self.datasets.dataset_reference.profiling_shares[
+                                                    rnd_reference:rnd_reference + batch_size_reference, 0])
+            snr_reference_features_share_2 = snr_fast(features_reference,
+                                                    self.datasets.dataset_reference.profiling_shares[
+                                                    rnd_reference:rnd_reference + batch_size_reference, 1])
+        # prepare traces from target dataset
+        else:
 
+            snr_reference_features_share_1 = snr_fast(features_reference,
+                                                    self.datasets.dataset_reference.share1_profiling[self.datasets.target_byte_reference,
+                                                    rnd_reference:rnd_reference + batch_size_reference])
+            snr_reference_features_share_2 = snr_fast(features_reference,
+                                                    self.datasets.dataset_reference.share2_profiling[self.datasets.target_byte_reference,
+                                                    rnd_reference:rnd_reference + batch_size_reference])
+        plt.rc('axes', labelsize=16)
+        plt.rc('xtick', labelsize=12)
+        plt.rc('ytick', labelsize=12)
         plt.plot(snr_reference_features_share_1)
         plt.plot(snr_reference_features_share_2)
         plt.xlim([1, self.datasets.features_dim])
+        plt.xlabel("Features")
+        plt.ylabel("SNR")
+        
         plt.savefig(f"{self.dir_results}/snr_reference_features.png")
         plt.close()
 
@@ -124,11 +148,17 @@ class TrainCGAN:
         snr_target_features_share_2 = snr_fast(features_target,
                                                self.datasets.dataset_target.share2_attack[self.datasets.target_byte_target,
                                                rnd_target:rnd_target + batch_size_target]).tolist()
-        plt.plot(snr_target_features_share_1)
-        plt.plot(snr_target_features_share_2)
+        plt.rc('axes', labelsize=16)
+        plt.rc('xtick', labelsize=12)
+        plt.rc('ytick', labelsize=12)
+        plt.plot(snr_target_features_share_1, label="Share 1")
+        plt.plot(snr_target_features_share_2, label="Share 2")
         plt.xlim([1, self.datasets.features_dim])
+        plt.xlabel("Features")
+        plt.ylabel("SNR")
+        plt.legend()
         if synthetic_traces:
-            if (epoch+1) % 40 == 0:
+            if (epoch + 1) % 200 == 0:
                 plt.savefig(f"{self.dir_results}/snr_target_features_fake_{epoch}.png")
         else:
             plt.savefig(f"{self.dir_results}/snr_target_features_real_{epoch}.png")
@@ -157,32 +187,29 @@ class TrainCGAN:
             np.savez(f"{self.dir_results}/max_snr_shares.npz", max_snr_share_1=self.max_snr_share_1, max_snr_share_2=self.max_snr_share_2)
 
     def attack_eval(self, epoch):
-        ge_real_ta, nt_real_ta, pi_real_ta, ge_vector_real_ta = template_attack(self.datasets)
+        #ge_real_ta, nt_real_ta, pi_real_ta, ge_vector_real_ta = template_attack(self.datasets)
         ge_fake, nt_fake, pi_fake, ge_vector_fake = attack(self.datasets, self.models.generator, self.datasets.features_dim)
-        ge_real, nt_real, pi_real, ge_vector_real = attack(self.datasets, self.models.generator, self.datasets.features_dim,
-                                                           synthetic_traces=False)
-        ge_real_original, nt_real_original, pi_real_original, ge_vector_real_original = attack(self.datasets, self.models.generator,
-                                                                                               self.datasets.dataset_target.ns,
-                                                                                               synthetic_traces=False, original_traces=True)
+        #ge_real, nt_real, pi_real, ge_vector_real = attack(self.datasets, self.models.generator, self.datasets.features_dim,
+          #                                                 synthetic_traces=False)
+        #ge_real_original, nt_real_original, pi_real_original, ge_vector_real_original = attack(self.datasets, self.models.generator,
+                                                                                            #    self.datasets.dataset_target.ns,
+                                                                                            #    synthetic_traces=False, original_traces=True)
         self.ge_fake.append(ge_fake)
         self.nt_fake.append(nt_fake)
         self.pi_fake.append(pi_fake)
-        self.ge_real.append(ge_real)
-        self.nt_real.append(nt_real)
-        self.pi_real.append(pi_real)
-        self.ge_real_original.append(ge_real_original)
-        self.nt_real_original.append(nt_real_original)
-        self.pi_real_original.append(pi_real_original)
-        self.ge_real_ta.append(ge_real_ta)
-        self.nt_real_ta.append(nt_real_ta)
-        self.pi_real_ta.append(pi_real_ta)
+        # self.ge_real.append(ge_real)
+        # self.nt_real.append(nt_real)
+        # self.pi_real.append(pi_real)
+        # self.ge_real_original.append(ge_real_original)
+        # self.nt_real_original.append(nt_real_original)
+        # self.pi_real_original.append(pi_real_original)
 
         self.x_axis_epochs.append(epoch + 1)
 
         plt.plot(self.x_axis_epochs, self.ge_fake, label="fake")
-        plt.plot(self.x_axis_epochs, self.ge_real, label="real")
-        plt.plot(self.x_axis_epochs, self.ge_real_original, label="real raw")
-        plt.plot(self.x_axis_epochs, self.ge_real_ta, label="real TA (LDA)")
+        # plt.plot(self.x_axis_epochs, self.ge_real, label="real")
+        # plt.plot(self.x_axis_epochs, self.ge_real_original, label="real raw")
+        #plt.plot(self.x_axis_epochs, self.ge_real_ta, label="real TA (LDA)")
         plt.legend()
         plt.xlabel("CGAN Training Epoch")
         plt.ylabel("Guessing Entropy")
@@ -190,25 +217,25 @@ class TrainCGAN:
         plt.close()
 
         plt.plot(self.x_axis_epochs, self.nt_fake, label="fake")
-        plt.plot(self.x_axis_epochs, self.nt_real, label="real")
-        plt.plot(self.x_axis_epochs, self.nt_real_original, label="real raw")
-        plt.plot(self.x_axis_epochs, self.nt_real_ta, label="TA (LDA)")
-        plt.legend()
-        plt.xlabel("CGAN Training Epoch")
-        plt.ylabel("Number of Traces for GE=1")
-        plt.yscale('log')
-        plt.savefig(f"{self.dir_results}/nt.png")
-        plt.close()
+        # plt.plot(self.x_axis_epochs, self.nt_real, label="real")
+        # plt.plot(self.x_axis_epochs, self.nt_real_original, label="real raw")
+        #plt.plot(self.x_axis_epochs, self.nt_real_ta, label="TA (LDA)")
+        # plt.legend()
+        # plt.xlabel("CGAN Training Epoch")
+        # plt.ylabel("Number of Traces for GE=1")
+        # plt.yscale('log')
+        # #plt.savefig(f"{self.dir_results}/nt.png")
+        # plt.close()
 
-        plt.plot(self.x_axis_epochs, self.pi_fake, label="fake")
-        plt.plot(self.x_axis_epochs, self.pi_real, label="real")
-        plt.plot(self.x_axis_epochs, self.pi_real_original, label="real raw")
-        plt.plot(self.x_axis_epochs, self.pi_real_ta, label="TA (LDA)")
-        plt.legend()
-        plt.xlabel("CGAN Training Epoch")
-        plt.ylabel("Perceived Information")
-        plt.savefig(f"{self.dir_results}/pi.png")
-        plt.close()
+        # plt.plot(self.x_axis_epochs, self.pi_fake, label="fake")
+        # plt.plot(self.x_axis_epochs, self.pi_real, label="real")
+        # plt.plot(self.x_axis_epochs, self.pi_real_original, label="real raw")
+        #plt.plot(self.x_axis_epochs, self.pi_real_ta, label="TA (LDA)")
+        # plt.legend()
+        # plt.xlabel("CGAN Training Epoch")
+        # plt.ylabel("Perceived Information")
+        # plt.savefig(f"{self.dir_results}/pi.png")
+        # plt.close()
 
         np.savez(f"{self.dir_results}/metrics.npz",
                  ge_fake=self.ge_fake,
@@ -225,22 +252,20 @@ class TrainCGAN:
                  pi_real_ta=self.pi_real_ta
                  )
 
-        plt.plot(ge_vector_fake, label="fake")
-        plt.plot(ge_vector_real, label="real")
-        plt.plot(ge_vector_real_original, label="real raw")
-        plt.plot(ge_vector_real_ta, label="real TA (LDA)")
-        plt.legend()
-        plt.xscale('log')
-        plt.xlabel("Attack Traces")
-        plt.ylabel("Guessing Entropy")
-        plt.savefig(f"{self.dir_results}/ge.png")
-        plt.close()
+        # plt.plot(ge_vector_fake, label="fake")
+        # # plt.plot(ge_vector_real, label="real")
+        # # plt.plot(ge_vector_real_original, label="real raw")
+        # plt.legend()
+        # plt.xscale('log')
+        # plt.xlabel("Attack Traces")
+        # plt.ylabel("Guessing Entropy")
+        # plt.savefig(f"{self.dir_results}/ge.png")
+        # plt.close()
 
         np.savez(f"{self.dir_results}/ge_vector.npz",
                  ge_vector_fake=ge_vector_fake,
-                 ge_vector_real=ge_vector_real,
-                 ge_vector_real_original=ge_vector_real_original,
-                 ge_vector_real_ta=ge_vector_real_ta
+                #  ge_vector_real=ge_vector_real,
+                #  ge_vector_real_original=ge_vector_real_original,
                  )
 
     # def attack_eval_synthetic(self, epoch):
@@ -277,28 +302,34 @@ class TrainCGAN:
                     self.g_loss.append(g_loss)
                     self.d_loss.append(d_loss)
 
-                    plt.plot(self.real_acc, label="Real")
-                    plt.plot(self.fake_acc, label="Fake")
-                    plt.axhline(y=0.5, linestyle="dashed", color="black")
-                    plt.legend()
-                    plt.savefig(f"{self.dir_results}/acc.png")
-                    plt.close()
+                    # plt.plot(self.real_acc, label="Real")
+                    # plt.plot(self.fake_acc, label="Fake")
+                    # plt.axhline(y=0.5, linestyle="dashed", color="black")
+                    # plt.legend()
+                    # plt.savefig(f"{self.dir_results}/acc.png")
+                    # plt.close()
                     print(
                         f"epoch: {e}, batch: {b}, d_loss: {d_loss}, g_loss: {g_loss}, real_acc: {self.models.real_accuracy_metric.result()}, fake_acc: {self.models.fake_accuracy_metric.result()}")
-                    np.savez(f"{self.dir_results}/acc_and_loss.npz",
-                             g_loss=self.g_loss, d_loss=self.d_loss,
-                             real_acc=self.real_acc, fake_acc=self.fake_acc)
+
+
 
             # Split eval steps up as attacking takes significant time while snr computation is fast
             if e == 0:
+
                 self.compute_snr_reference_features()
                 self.compute_snr_target_features(e, synthetic_traces=False)
-            if (e + 1) % 1 == 0:
+            if (e + 1) % 1== 0:
+                #Redo shuffling 
+
+                #self.datasets.dataset_target.x_profiling =  augment_renew(self.datasets.dataset_target.x_profiling, 15, self.args["n_profiling_target"])
                 self.compute_snr_target_features(e)
                 # self.attack_eval_synthetic(e)
-            if (e + 1) % self.args["epochs"] == 0:
+            if (e + 1) % 200 == 0:
                 self.attack_eval(e)
-                self.models.generator.save(
-                    f"{self.dir_results}/generator_{self.datasets.traces_target_dim}_{self.datasets.traces_reference_dim}_epoch_{e}.h5")
+                # self.models.generator.save(
+                #     f"{self.dir_results}/generator_{self.datasets.traces_target_dim}_{self.datasets.traces_reference_dim}_epoch_{e}.h5")
+        np.savez(f"{self.dir_results}/acc_and_loss.npz",
+                             g_loss=self.g_loss, d_loss=self.d_loss,
+                             real_acc=self.real_acc, fake_acc=self.fake_acc)
         self.models.generator.save(
             f"{self.dir_results}/generator_{self.datasets.traces_target_dim}_{self.datasets.traces_reference_dim}_epoch_{self.args['epochs'] - 1}.h5")

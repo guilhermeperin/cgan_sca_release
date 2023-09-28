@@ -1,6 +1,8 @@
 import numpy as np
 from datetime import datetime
 import os
+from sklearn.discriminant_analysis import LinearDiscriminantAnalysis
+from sklearn.decomposition import PCA
 
 
 def snr_fast(x, y):
@@ -15,36 +17,59 @@ def snr_fast(x, y):
         variances[i] = np.var(new_x, axis=0)
     return np.var(means, axis=0) / np.mean(variances, axis=0)
 
+def get_features_bit(dataset, target_byte: int, n_poi=100):
+    poi = np.zeros(n_poi, dtype=np.int32)
+    per_bit =  n_poi//16
+    for i in range(8):
+        poi[i*per_bit: (i+1)*per_bit] = get_features_bit_per(np.array(dataset.x_profiling[:20000], dtype=np.int16), np.asarray(dataset.share1_profiling[target_byte, :20000], dtype=np.uint8), i,per_bit)
+        poi[n_poi//2 + i*per_bit:n_poi//2 + (i+1)*per_bit] = get_features_bit_per(np.array(dataset.x_profiling[:20000], dtype=np.int16), np.asarray(dataset.share2_profiling[target_byte, :20000], dtype=np.uint8), i,per_bit)
+    return dataset.x_profiling[:, poi], dataset.x_attack[:, poi]
+
 
 def get_features(dataset, target_byte: int, n_poi=100):
-    snr_val_share_1 = snr_fast(np.array(dataset.x_profiling, dtype=np.int16), np.asarray(dataset.share1_profiling[target_byte, :]))
-    snr_val_share_2 = snr_fast(np.array(dataset.x_profiling, dtype=np.int16), np.asarray(dataset.share2_profiling[target_byte, :]))
+    snr_val_share_1 = snr_fast(np.array(dataset.x_profiling[:20000], dtype=np.int16), np.asarray(dataset.share1_profiling[target_byte, :20000]))
+    snr_val_share_2 = snr_fast(np.array(dataset.x_profiling[:20000], dtype=np.int16), np.asarray(dataset.share2_profiling[target_byte, :20000]))
     snr_val_share_1[np.isnan(snr_val_share_1)] = 0
     snr_val_share_2[np.isnan(snr_val_share_2)] = 0
-
+    
     ind_snr_masks_poi_sm = np.argsort(snr_val_share_1)[::-1][:int(n_poi / 2)]
+    sorted_poi_masks_sm = np.argsort(snr_val_share_1)[::-1]
     ind_snr_masks_poi_sm_sorted = np.sort(ind_snr_masks_poi_sm)
 
     ind_snr_masks_poi_r2 = np.argsort(snr_val_share_2)[::-1][:int(n_poi / 2)]
+    sorted_poi_masks_r2 = np.argsort(snr_val_share_2)[::-1]
     ind_snr_masks_poi_r2_sorted = np.sort(ind_snr_masks_poi_r2)
 
     poi_profiling = np.concatenate((ind_snr_masks_poi_sm_sorted, ind_snr_masks_poi_r2_sorted), axis=0)
 
-    snr_val_share_1 = snr_fast(np.array(dataset.x_attack, dtype=np.int16), np.asarray(dataset.share1_attack[target_byte, :]))
-    snr_val_share_2 = snr_fast(np.array(dataset.x_attack, dtype=np.int16), np.asarray(dataset.share2_attack[target_byte, :]))
-    snr_val_share_1[np.isnan(snr_val_share_1)] = 0
-    snr_val_share_2[np.isnan(snr_val_share_2)] = 0
+    return dataset.x_profiling[:, poi_profiling], dataset.x_attack[:, poi_profiling]
 
-    ind_snr_masks_poi_sm = np.argsort(snr_val_share_1)[::-1][:int(n_poi / 2)]
-    ind_snr_masks_poi_sm_sorted = np.sort(ind_snr_masks_poi_sm)
+def get_lda_features(dataset, target_byte: int):
+    x_prof, x_att = get_features(dataset, target_byte, n_poi=200)
+    lda_s1 = LinearDiscriminantAnalysis()
+    lda_s1.fit(x_prof[:5000, :100], np.asarray(dataset.share1_profiling[target_byte, :5000]))
+    lda_s2 = LinearDiscriminantAnalysis()
+    lda_s2.fit(x_prof[:5000, 100:], np.asarray(dataset.share2_profiling[target_byte, :5000]))
+    s1_prof = lda_s1.predict_proba(x_prof[:, :100])
+    s1_att = lda_s1.predict_proba(x_att[:, :100])
+    s2_prof = lda_s2.predict_proba(x_prof[:, 100:])
+    s2_att = lda_s2.predict_proba(x_att[:, 100:])
+    return np.append(s1_prof, s2_prof, axis=1), np.append(s1_att, s2_att, axis=1)
 
-    """ sort POIs from mask share """
-    ind_snr_masks_poi_r2 = np.argsort(snr_val_share_2)[::-1][:int(n_poi / 2)]
-    ind_snr_masks_poi_r2_sorted = np.sort(ind_snr_masks_poi_r2)
+def get_pca_features(dataset, target_byte: int, n_components=10):
+    x_prof, x_att = get_features(dataset, target_byte, n_poi=200)
 
-    poi_attack = np.concatenate((ind_snr_masks_poi_sm_sorted, ind_snr_masks_poi_r2_sorted), axis=0)
+    pca = PCA(n_components=n_components//2)
+    pca.fit(x_prof[:20000, :100])
+    s1_prof = pca.transform(x_prof[:, :100] )
+    s1_att = pca.transform(x_att[:, :100] )
+    pca = PCA(n_components=n_components//2)
+    pca.fit(x_prof[:20000, 100:])
+    s2_prof = pca.transform(x_prof[:, 100:] )
+    s2_att = pca.transform(x_att[:, 100:] )
+    return np.append(s1_prof, s2_prof, axis=1), np.append(s1_att, s2_att, axis=1)
 
-    return dataset.x_profiling[:, poi_profiling], dataset.x_attack[:, poi_attack]
+
 
 
 def create_directory_results(args, path):
@@ -54,3 +79,10 @@ def create_directory_results(args, path):
     if not os.path.exists(dir_results):
         os.mkdir(dir_results)
     return dir_results
+
+
+def get_features_bit_per(x, y, bit, points):
+    temp = snr_fast(x, y>>(7-bit) & 1)
+    ind_snr_masks_poi_sm = np.argsort(temp)[::-1][:points]
+    ind_snr_masks_poi_sm_sorted = np.sort(ind_snr_masks_poi_sm)
+    return ind_snr_masks_poi_sm_sorted

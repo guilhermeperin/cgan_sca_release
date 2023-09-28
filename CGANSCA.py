@@ -7,7 +7,7 @@ class CGANSCA:
 
     def __init__(self, **kwargs):
         self.args = kwargs['args']
-        self.models = CreateModels(self.args)
+        self.models = CreateModels(self.args, random_hp=False)
         self.main_path = self.args["results_root_path"]
 
     def train_cgan(self):

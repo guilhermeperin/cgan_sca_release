@@ -78,7 +78,7 @@ class ReadDPAV42:
     def load_dataset(self):
         in_file = h5py.File(self.file_path, "r")
 
-        profiling_samples = np.array(in_file['Profiling_traces/traces'][:self.n_profiling], dtype=np.float32)
+        profiling_samples = np.array(in_file['Profiling_traces/traces'], dtype=np.float32)
         attack_samples = np.array(in_file['Attack_traces/traces'][:self.n_attack + self.n_validation], dtype=np.float32)
         profiling_plaintext = in_file['Profiling_traces/metadata']['plaintext']
         attack_plaintext = in_file['Attack_traces/metadata']['plaintext']
@@ -87,10 +87,19 @@ class ReadDPAV42:
         attack_key = in_file['Attack_traces/metadata']['key']
         profiling_mask = in_file['Profiling_traces/metadata']['masks']
         attack_mask = in_file['Attack_traces/metadata']['masks']
+        profiling_samples = profiling_samples[:profiling_samples.shape[0]]
+        profiling_plaintexts = profiling_plaintext[:profiling_samples.shape[0]]
+        profiling_keys = profiling_key[:profiling_samples.shape[0]]
+        profiling_masks = profiling_mask[:profiling_samples.shape[0]]
+        if self.n_profiling < 70000:
 
-        profiling_plaintexts = profiling_plaintext[:self.n_profiling]
-        profiling_keys = profiling_key[:self.n_profiling]
-        profiling_masks = profiling_mask[:self.n_profiling]
+            prof_indices = np.random.choice(profiling_samples.shape[0], self.n_profiling, replace=False)
+            profiling_samples = profiling_samples[prof_indices]
+            profiling_plaintexts = profiling_plaintext[prof_indices]
+            profiling_keys = profiling_key[prof_indices]
+            profiling_masks = profiling_mask[prof_indices]
+
+
         validation_plaintexts = attack_plaintext[:self.n_validation]
         validation_keys = attack_key[:self.n_validation]
         validation_masks = attack_mask[:self.n_validation]
@@ -120,9 +129,9 @@ class ReadDPAV42:
         self.labels_key_hypothesis_validation = self.create_labels_key_guess(validation_plaintexts, self.round_key_attack)
         self.labels_key_hypothesis_attack = self.create_labels_key_guess(attack_plaintexts, self.round_key_attack)
         self.share1_profiling, self.share2_profiling, self.share1_attack, self.share2_attack, self.target_profiling, self.target_attack = self.create_intermediates(
-            profiling_plaintext,
+            profiling_plaintexts,
             profiling_masks,
-            profiling_key,
+            profiling_keys,
             attack_plaintexts,
             attack_keys,
             attack_masks,
@@ -135,15 +144,15 @@ class ReadDPAV42:
         self.x_profiling = np.array(self.x_profiling)
         self.x_validation = np.array(self.x_validation)
         self.x_attack = np.array(self.x_attack)
-
+        print(self.x_profiling.shape)
         self.x_profiling = MinMaxScaler(feature_range=(-1, 1)).fit_transform(self.x_profiling.T).T
-        self.x_validation = MinMaxScaler(feature_range=(-1, 1)).fit_transform(self.x_validation.T).T
+        #self.x_validation = MinMaxScaler(feature_range=(-1, 1)).fit_transform(self.x_validation.T).T
         self.x_attack = MinMaxScaler(feature_range=(-1, 1)).fit_transform(self.x_attack.T).T
 
         if reshape_to_cnn:
             print("reshaping to 3 dims")
             self.x_profiling = self.x_profiling.reshape((self.x_profiling.shape[0], self.x_profiling.shape[1], 1))
-            self.x_validation = self.x_validation.reshape((self.x_validation.shape[0], self.x_validation.shape[1], 1))
+            #self.x_validation = self.x_validation.reshape((self.x_validation.shape[0], self.x_validation.shape[1], 1))
             self.x_attack = self.x_attack.reshape((self.x_attack.shape[0], self.x_attack.shape[1], 1))
 
     def aes_labelize(self, plaintexts, keys):

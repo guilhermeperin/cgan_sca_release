@@ -16,11 +16,12 @@ def get_dataset_filepath(dataset_root_folder, dataset_name, npoi, leakage_model)
                 25000: f"{dataset_root_folder}/ASCADr/ascad-variable_nopoi/ascad-variable_nopoi_window_20.h5",
                 12500: f"{dataset_root_folder}/ASCADr/ascad-variable_nopoi/ascad-variable_nopoi_window_40.h5",
                 6250: f"{dataset_root_folder}/ASCADr/ascad-variable_nopoi/ascad-variable_nopoi_window_80.h5",
+                250000: f"{dataset_root_folder}/ASCADr/atmega8515-raw-traces.h5",
             },
             "dpa_v42": {
                 # 100: f"{dataset_root_folder}/DPAV42/DPAV42_rpoi/dpa_v42_100poi.h5",
                 30000: f"{dataset_root_folder}/DPAV42/DPAV42_nopoi/dpa_v42_nopoi_window_10.h5",
-                15000: f"{dataset_root_folder}/DPAV42/DPAV42_nopoi/dpa_v42_nopoi_window_20.h5",
+                15000: f"{dataset_root_folder}/v4_2/dpa_v42_nopoi_window_20.h5",
                 7500: f"{dataset_root_folder}/DPAV42/DPAV42_nopoi/dpa_v42_nopoi_window_40.h5",
                 3750: f"{dataset_root_folder}/DPAV42/DPAV42_nopoi/dpa_v42_nopoi_window_80.h5"
 
@@ -43,6 +44,9 @@ def get_dataset_filepath(dataset_root_folder, dataset_name, npoi, leakage_model)
             },
             "aes_hd_mm": {
                 3250: f"{dataset_root_folder}/aes_hd_mm.h5",
+            },
+            "simulate": {
+                100: "no_path"
             }
         }
     else:
@@ -61,7 +65,8 @@ def get_dataset_filepath(dataset_root_folder, dataset_name, npoi, leakage_model)
                 50000: f"{dataset_root_folder}/ASCADr/ascad-variable_nopoi/ascad-variable_nopoi_window_10.h5",
                 25000: f"{dataset_root_folder}/ASCADr/ascad-variable_nopoi/ascad-variable_nopoi_window_20.h5",
                 12500: f"{dataset_root_folder}/ASCADr/ascad-variable_nopoi/ascad-variable_nopoi_window_40.h5",
-                6250: f"{dataset_root_folder}/ASCADr/ascad-variable_nopoi/ascad-variable_nopoi_window_80.h5"
+                6250: f"{dataset_root_folder}/ASCADr/ascad-variable_nopoi/ascad-variable_nopoi_window_80.h5",
+                250000: f"{dataset_root_folder}/ASCADr/atmega8515-raw-traces.h5",
             },
             "dpa_v42": {
                 # 100: f"{dataset_root_folder}/DPAV42/DPAV42_rpoi/dpa_v42_100poi_hw.h5",
@@ -88,6 +93,9 @@ def get_dataset_filepath(dataset_root_folder, dataset_name, npoi, leakage_model)
             },
             "aes_hd_mm": {
                 3250: f"{dataset_root_folder}/aes_hd_mm.h5",
+            }, 
+            "simulate": {
+                100: "no_path"
             }
         }
     return dataset_dict[dataset_name][npoi]

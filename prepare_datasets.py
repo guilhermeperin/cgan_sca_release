@@ -4,6 +4,7 @@ from src.datasets.load_dpav42 import *
 from src.datasets.load_aes_sim_reference import *
 from src.datasets.load_eshard import *
 from src.datasets.load_aes_hd_mm import *
+from src.datasets.simulate_higher_order import *
 from src.datasets.paths import *
 from os.path import exists
 from utils import *
@@ -47,7 +48,7 @@ class PrepareDatasets:
         reference_features_shortcut = ""
         num_features = args["features"]
         dataset_file = get_dataset_filepath(args["dataset_root_path"], identifier, traces_dim, args["leakage_model"])
-        if reference:
+        if reference and (not identifier =="simulate"):
             """ If features were already computed for this dataset, target key byte, 
             and leakage model, there is no need to compute it again"""
             reference_features_shortcut = f'{args["features_root_path"]}/selected_{args["features"]}_features_snr_{args["dataset_reference"]}_{self.traces_reference_dim}_target_byte_{self.target_byte_reference}.h5'
@@ -61,6 +62,8 @@ class PrepareDatasets:
         dataset = None
         if identifier == "ascad-variable":
             dataset = ReadASCADr(n_prof, n_val, n_attack, target_byte, args["leakage_model"], dataset_file, number_of_samples=traces_dim)
+        if identifier == "simulate":
+            dataset = SimulateHigherOrder(1, n_prof, n_attack, args["features"]//2, args["features"], leakage_model=args["leakage_model"], rsm_mask=args["dataset_target"]=="dpa_v42")
         if identifier == "ASCAD":
             dataset = ReadASCADf(n_prof, n_val, n_attack, target_byte, args["leakage_model"], dataset_file, number_of_samples=traces_dim)
         if identifier == "eshard":
@@ -97,6 +100,7 @@ class PrepareDatasets:
                 return ReadAESHDMM(n_prof, n_val, n_attack, target_byte, args["leakage_model"], dataset_file,
                                    number_of_samples=traces_dim)
         else:
+            
             return dataset
 
     def scale_dataset(self, prof_set, attack_set, scaler):
@@ -124,7 +128,11 @@ class PrepareDatasets:
 
     def generate_features_h5(self, dataset, target_byte, save_file_path):
 
-        profiling_traces_rpoi, attack_traces_rpoi = get_features(dataset, target_byte, 100)
+        #profiling_traces_rpoi, attack_traces_rpoi = get_features(dataset, target_byte, self.features_dim)
+        #profiling_traces_rpoi, attack_traces_rpoi = get_features_bit(dataset, target_byte, self.features_dim)
+        #profiling_traces_rpoi, attack_traces_rpoi = get_lda_features(dataset, target_byte)
+        profiling_traces_rpoi, attack_traces_rpoi = get_pca_features(dataset, target_byte, self.features_dim)
+        
         out_file = h5py.File(save_file_path, 'w')
 
         profiling_index = [n for n in range(dataset.n_profiling)]
