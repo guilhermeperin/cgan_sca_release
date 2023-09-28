@@ -3,6 +3,13 @@ from datetime import datetime
 import os
 from sklearn.discriminant_analysis import LinearDiscriminantAnalysis
 from sklearn.decomposition import PCA
+from src.datasets.paths import *
+from src.datasets.load_ascadr import *
+from src.datasets.load_ascadf import *
+from src.datasets.load_dpav42 import *
+from src.datasets.load_eshard import *
+from src.datasets.load_chesctf import *
+from os.path import exists
 
 
 def snr_fast(x, y):
@@ -27,8 +34,8 @@ def get_features_bit(dataset, target_byte: int, n_poi=100):
 
 
 def get_features(dataset, target_byte: int, n_poi=100):
-    snr_val_share_1 = snr_fast(np.array(dataset.x_profiling[:20000], dtype=np.int16), np.asarray(dataset.share1_profiling[target_byte, :20000]))
-    snr_val_share_2 = snr_fast(np.array(dataset.x_profiling[:20000], dtype=np.int16), np.asarray(dataset.share2_profiling[target_byte, :20000]))
+    snr_val_share_1 = snr_fast(np.array(dataset.x_profiling[:min(20000, dataset.x_profiling.shape[0])], dtype=np.int16), np.asarray(dataset.share1_profiling[target_byte, :min(20000, dataset.x_profiling.shape[0])]))
+    snr_val_share_2 = snr_fast(np.array(dataset.x_profiling[:min(20000, dataset.x_profiling.shape[0])], dtype=np.int16), np.asarray(dataset.share2_profiling[target_byte, :min(20000, dataset.x_profiling.shape[0])]))
     snr_val_share_1[np.isnan(snr_val_share_1)] = 0
     snr_val_share_2[np.isnan(snr_val_share_2)] = 0
     
@@ -82,7 +89,41 @@ def create_directory_results(args, path):
 
 
 def get_features_bit_per(x, y, bit, points):
-    temp = snr_fast(x, y>>(7-bit) & 1)
+    temp = snr_fast(x, (y>>(7-bit)) & 1)
     ind_snr_masks_poi_sm = np.argsort(temp)[::-1][:points]
     ind_snr_masks_poi_sm_sorted = np.sort(ind_snr_masks_poi_sm)
     return ind_snr_masks_poi_sm_sorted
+
+def load_dataset(identifier: str, path: str, target_byte: int, traces_dim: int, leakage_model="ID", num_features=-1):
+    
+    dataset_file = get_dataset_filepath(path, identifier, traces_dim, leakage_model=leakage_model)
+    snr_shortcut = f'{path}/paper_9_gan_features/selected_{num_features}_features_snr_{identifier}_{traces_dim}.h5'
+    if num_features > 0 and exists(snr_shortcut):
+        dataset_file = snr_shortcut
+        traces_dim = num_features
+        
+    if identifier == "ascad-variable":
+        dataset = ReadASCADr(200000, 0, 10000, target_byte, leakage_model,
+                                                dataset_file,
+                                                number_of_samples=traces_dim)
+    if identifier == "ASCAD":
+        dataset = ReadASCADf(50000, 0, 10000, target_byte, leakage_model,
+                                                dataset_file,
+                                                number_of_samples=traces_dim)
+    if identifier == "dpa_v42":
+        dataset = ReadDPAV42(70000, 0, 5000, target_byte, leakage_model,
+                                                dataset_file,
+                                                number_of_samples=traces_dim)
+    if identifier == "ches_ctf":
+        dataset = ReadCHESCTF(45000, 0, 5000, target_byte, leakage_model,
+                                                         dataset_file,
+                                                         number_of_samples=traces_dim)
+    return dataset
+
+def scale_dataset(prof_set, attack_set, scaler):
+        prof_new = scaler.fit_transform(prof_set)
+        if attack_set is not None:
+            attack_new = scaler.transform(attack_set)
+        else:
+            attack_new = None
+        return prof_new, attack_new

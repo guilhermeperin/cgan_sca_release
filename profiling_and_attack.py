@@ -181,7 +181,7 @@ def template_attacking(meanMatrix, covMatrix, X_test, template_classes, labels, 
     return proba
 
 
-def attack(dataset, generator, features_dim: int, attack_model=None, synthetic_traces=True, original_traces=False):
+def attack(dataset, generator, features_dim: int, attack_model=None, synthetic_traces=True, original_traces=False, batch_size=400):
     """ Generate a batch of synthetic measurements with the trained generator """
     if original_traces:
         features_target_attack = np.array(dataset.dataset_target.x_attack)
@@ -203,9 +203,9 @@ def attack(dataset, generator, features_dim: int, attack_model=None, synthetic_t
     model.fit(
         x=features_target_profiling,
         y=to_categorical(dataset.dataset_target.profiling_labels, num_classes=dataset.dataset_target.classes),
-        batch_size=400,
+        batch_size=batch_size,
         verbose=2,
-        epochs=50,
+        epochs=20,
         shuffle=True,
         validation_data=(
             features_target_attack, to_categorical(dataset.dataset_target.attack_labels, num_classes=dataset.dataset_target.classes)),
