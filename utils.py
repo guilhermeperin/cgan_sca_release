@@ -51,16 +51,16 @@ def get_features(dataset, target_byte: int, n_poi=100):
 
     return dataset.x_profiling[:, poi_profiling], dataset.x_attack[:, poi_profiling]
 
-def get_lda_features(dataset, target_byte: int):
+def get_lda_features(dataset, target_byte: int, n_components=10):
     x_prof, x_att = get_features(dataset, target_byte, n_poi=200)
-    lda_s1 = LinearDiscriminantAnalysis()
+    lda_s1 = LinearDiscriminantAnalysis(n_components=n_components//2)
     lda_s1.fit(x_prof[:5000, :100], np.asarray(dataset.share1_profiling[target_byte, :5000]))
-    lda_s2 = LinearDiscriminantAnalysis()
+    lda_s2 = LinearDiscriminantAnalysis(n_components=n_components//2)
     lda_s2.fit(x_prof[:5000, 100:], np.asarray(dataset.share2_profiling[target_byte, :5000]))
-    s1_prof = lda_s1.predict_proba(x_prof[:, :100])
-    s1_att = lda_s1.predict_proba(x_att[:, :100])
-    s2_prof = lda_s2.predict_proba(x_prof[:, 100:])
-    s2_att = lda_s2.predict_proba(x_att[:, 100:])
+    s1_prof = lda_s1.transform(x_prof[:, :100])
+    s1_att = lda_s1.transform(x_att[:, :100])
+    s2_prof = lda_s2.transform(x_prof[:, 100:])
+    s2_att = lda_s2.transform(x_att[:, 100:])
     return np.append(s1_prof, s2_prof, axis=1), np.append(s1_att, s2_att, axis=1)
 
 def get_pca_features(dataset, target_byte: int, n_components=10):

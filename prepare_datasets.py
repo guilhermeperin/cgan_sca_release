@@ -130,8 +130,8 @@ class PrepareDatasets:
 
         #profiling_traces_rpoi, attack_traces_rpoi = get_features(dataset, target_byte, self.features_dim)
         #profiling_traces_rpoi, attack_traces_rpoi = get_features_bit(dataset, target_byte, self.features_dim)
-        #profiling_traces_rpoi, attack_traces_rpoi = get_lda_features(dataset, target_byte)
-        profiling_traces_rpoi, attack_traces_rpoi = get_pca_features(dataset, target_byte, self.features_dim)
+        profiling_traces_rpoi, attack_traces_rpoi = get_lda_features(dataset, target_byte, self.features_dim)
+        #profiling_traces_rpoi, attack_traces_rpoi = get_pca_features(dataset, target_byte, self.features_dim)
         
         out_file = h5py.File(save_file_path, 'w')
 
