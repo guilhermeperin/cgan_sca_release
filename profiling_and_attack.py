@@ -221,7 +221,7 @@ def attack(dataset, generator, features_dim: int, attack_model=None, synthetic_t
 
 
 def template_attack(dataset):
-    features_target_profiling, features_target_attack = get_features(dataset.dataset_target,
+    features_target_profiling, features_target_attack = get_lda_features(dataset.dataset_target,
                                                                      dataset.target_byte_target,
                                                                      n_poi=10)
     """ Template Attack """
