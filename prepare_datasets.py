@@ -3,6 +3,7 @@ from src.datasets.load_ascadf import *
 from src.datasets.load_dpav42 import *
 from src.datasets.load_aes_sim_reference import *
 from src.datasets.load_eshard import *
+from src.datasets.load_spook_sw3 import *
 from src.datasets.load_aes_hd_mm import *
 from src.datasets.simulate_higher_order import *
 from src.datasets.paths import *
@@ -99,6 +100,11 @@ class PrepareDatasets:
             if identifier == "aes_hd_mm":
                 return ReadAESHDMM(n_prof, n_val, n_attack, target_byte, args["leakage_model"], dataset_file,
                                    number_of_samples=traces_dim)
+            
+            if identifier == "spook_sw3":
+                 return ReadSpookSW3(n_prof, n_val, n_attack, target_byte, args["leakage_model"], dataset_file,
+                                   number_of_samples=traces_dim)
+
         else:
             
             return dataset
@@ -128,6 +134,7 @@ class PrepareDatasets:
 
     def generate_features_h5(self, dataset, target_byte, save_file_path, feature_select):
         profiling_traces_rpoi, attack_traces_rpoi = None, None
+        """spook features generation doesnt  work"""
         if feature_select== "snr":
             profiling_traces_rpoi, attack_traces_rpoi = get_features(dataset, target_byte, self.features_dim)
         elif feature_select == "pca":

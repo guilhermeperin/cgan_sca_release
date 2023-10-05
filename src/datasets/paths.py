@@ -1,4 +1,6 @@
 def get_dataset_filepath(dataset_root_folder, dataset_name, npoi, leakage_model):
+    if dataset_name == "simulate":
+        return "sim"
     if leakage_model == "ID":
         dataset_dict = {
             "ASCAD": {
@@ -45,10 +47,10 @@ def get_dataset_filepath(dataset_root_folder, dataset_name, npoi, leakage_model)
             "aes_hd_mm": {
                 3250: f"{dataset_root_folder}/aes_hd_mm.h5",
             },
-            "simulate": {
-                100: "no_path",
-                200: "no_path"
-            }
+
+            "spook_sw3": {
+            6250: f"{dataset_root_folder}/sw3/spook_sw3_nopoi_window_20.h5.",
+        },
         }
     else:
         dataset_dict = {
@@ -95,9 +97,7 @@ def get_dataset_filepath(dataset_root_folder, dataset_name, npoi, leakage_model)
             "aes_hd_mm": {
                 3250: f"{dataset_root_folder}/aes_hd_mm.h5",
             }, 
-            "simulate": {
-                100: "no_path",
-                200: "no_path"
-            }
+            "spook_sw3": {
+            6250: f"{dataset_root_folder}/sw3/spook_sw3_nopoi_window_20.h5."}
         }
     return dataset_dict[dataset_name][npoi]
