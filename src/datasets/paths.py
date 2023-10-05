@@ -46,7 +46,8 @@ def get_dataset_filepath(dataset_root_folder, dataset_name, npoi, leakage_model)
                 3250: f"{dataset_root_folder}/aes_hd_mm.h5",
             },
             "simulate": {
-                100: "no_path"
+                100: "no_path",
+                200: "no_path"
             }
         }
     else:
@@ -95,7 +96,8 @@ def get_dataset_filepath(dataset_root_folder, dataset_name, npoi, leakage_model)
                 3250: f"{dataset_root_folder}/aes_hd_mm.h5",
             }, 
             "simulate": {
-                100: "no_path"
+                100: "no_path",
+                200: "no_path"
             }
         }
     return dataset_dict[dataset_name][npoi]

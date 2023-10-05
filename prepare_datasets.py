@@ -51,7 +51,7 @@ class PrepareDatasets:
         if reference and (not identifier =="simulate"):
             """ If features were already computed for this dataset, target key byte, 
             and leakage model, there is no need to compute it again"""
-            reference_features_shortcut = f'{args["features_root_path"]}/selected_{args["features"]}_features_snr_{args["dataset_reference"]}_{self.traces_reference_dim}_target_byte_{self.target_byte_reference}.h5'
+            reference_features_shortcut = f'{args["features_root_path"]}/selected_{args["features"]}_features_snr_{args["dataset_reference"]}_{self.traces_reference_dim}_target_byte_{self.target_byte_reference}_{args["feature_select"]}.h5'
             if exists(reference_features_shortcut):
                 print("Reference features already created.")
                 dataset_file = reference_features_shortcut
@@ -77,7 +77,7 @@ class PrepareDatasets:
             dataset = ReadAESHDMM(n_prof, n_val, n_attack, target_byte, args["leakage_model"], dataset_file, number_of_samples=traces_dim)
 
         if implement_reference_feature_selection:
-            self.generate_features_h5(dataset, target_byte, reference_features_shortcut)
+            self.generate_features_h5(dataset, target_byte, reference_features_shortcut, args["feature_select"])
             dataset_file = reference_features_shortcut
             traces_dim = num_features
 
@@ -126,11 +126,15 @@ class PrepareDatasets:
             noise = np.random.normal(0, args["std_gaussian_noise_target"], np.shape(self.dataset_target.x_attack))
             self.dataset_target.x_attack = np.add(self.dataset_target.x_attack, noise)
 
-    def generate_features_h5(self, dataset, target_byte, save_file_path):
-
-        #profiling_traces_rpoi, attack_traces_rpoi = get_features(dataset, target_byte, self.features_dim)
+    def generate_features_h5(self, dataset, target_byte, save_file_path, feature_select):
+        profiling_traces_rpoi, attack_traces_rpoi = None, None
+        if feature_select== "snr":
+            profiling_traces_rpoi, attack_traces_rpoi = get_features(dataset, target_byte, self.features_dim)
+        elif feature_select == "pca":
+            profiling_traces_rpoi, attack_traces_rpoi = get_pca_features(dataset, target_byte, self.features_dim)
+        elif feature_select == "lda":
         #profiling_traces_rpoi, attack_traces_rpoi = get_features_bit(dataset, target_byte, self.features_dim)
-        profiling_traces_rpoi, attack_traces_rpoi = get_lda_features(dataset, target_byte, self.features_dim)
+            profiling_traces_rpoi, attack_traces_rpoi = get_lda_features(dataset, target_byte, self.features_dim)
         #profiling_traces_rpoi, attack_traces_rpoi = get_pca_features(dataset, target_byte, self.features_dim)
         
         out_file = h5py.File(save_file_path, 'w')
