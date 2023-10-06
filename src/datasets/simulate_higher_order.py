@@ -15,7 +15,7 @@ class SimulateHigherOrder():
 
     def __init__(self, order, num_traces, num_attack_traces,  num_informative_features, num_features, leakage_model = "ID", rsm_mask=False) -> None:
 
-        
+        self.name = "simulate"
         self.order = order
         self.num_traces = num_traces
         self.n_profiling = num_traces
@@ -24,6 +24,7 @@ class SimulateHigherOrder():
         self.num_informative_features = num_informative_features
         self.num_leakage_regions = 2
         self.rsm_mask = rsm_mask
+        self.ns = num_features
         if num_features//(order+1)==num_informative_features:
             self.x_profiling, self.profiling_masks, self.profiling_shares  = self.only_informative(num_traces)
             self.x_attack, self.attack_masks, self.attack_shares  = self.only_informative(num_attack_traces)

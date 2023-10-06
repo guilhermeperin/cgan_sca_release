@@ -34,8 +34,9 @@ def get_features_bit(dataset, target_byte: int, n_poi=100):
 
 
 def get_features(dataset, target_byte: int, n_poi=100):
-    snr_val_share_1 = snr_fast(np.array(dataset.x_profiling[:min(20000, dataset.x_profiling.shape[0])], dtype=np.int16), np.asarray(dataset.share1_profiling[target_byte, :min(20000, dataset.x_profiling.shape[0])]))
-    snr_val_share_2 = snr_fast(np.array(dataset.x_profiling[:min(20000, dataset.x_profiling.shape[0])], dtype=np.int16), np.asarray(dataset.share2_profiling[target_byte, :min(20000, dataset.x_profiling.shape[0])]))
+    snr_arr = get_snr_shares(dataset, target_byte)
+    snr_val_share_1 = snr_arr[0]
+    snr_val_share_2 = snr_arr[1]
     snr_val_share_1[np.isnan(snr_val_share_1)] = 0
     snr_val_share_2[np.isnan(snr_val_share_2)] = 0
     
@@ -51,30 +52,60 @@ def get_features(dataset, target_byte: int, n_poi=100):
 
     return dataset.x_profiling[:, poi_profiling], dataset.x_attack[:, poi_profiling]
 
+def get_features_order(dataset, target_byte, n_poi):
+    snr_arr = get_snr_shares(dataset, target_byte)
+    order = snr_arr.shape[0]
+    poi_profiling = None
+    for i in range(order):
+        snr_val = snr_arr[i]
+        snr_val[np.isnan(snr_val)] = 0
+        ind_snr_masks_poi_sm = np.argsort(snr_val)[::-1][:int(n_poi //order)]
+        ind_snr_masks_poi_sm_sorted = np.sort(ind_snr_masks_poi_sm)
+        poi_profiling = ind_snr_masks_poi_sm_sorted if i ==0 else np.concatenate((poi_profiling, ind_snr_masks_poi_sm_sorted), axis=0)
+    return dataset.x_profiling[:, poi_profiling], dataset.x_attack[:, poi_profiling]
+
+
+
+
 def get_lda_features(dataset, target_byte: int, n_components=10):
-    x_prof, x_att = get_features(dataset, target_byte, n_poi=200)
-    lda_s1 = LinearDiscriminantAnalysis(n_components=n_components//2)
-    lda_s1.fit(x_prof[:5000, :100], np.asarray(dataset.share1_profiling[target_byte, :5000]))
-    lda_s2 = LinearDiscriminantAnalysis(n_components=n_components//2)
-    lda_s2.fit(x_prof[:5000, 100:], np.asarray(dataset.share2_profiling[target_byte, :5000]))
-    s1_prof = lda_s1.transform(x_prof[:, :100])
-    s1_att = lda_s1.transform(x_att[:, :100])
-    s2_prof = lda_s2.transform(x_prof[:, 100:])
-    s2_att = lda_s2.transform(x_att[:, 100:])
-    return np.append(s1_prof, s2_prof, axis=1), np.append(s1_att, s2_att, axis=1)
+    order = 1 if not  (dataset.name=="simulate" or dataset.name =="spook_sw3") else dataset.order
+    order = order + 1
+    n_poi_snr = min(100, dataset.ns//order)
+    x_prof, x_att = get_features(dataset, target_byte, n_poi=n_poi_snr*order)
+
+    result_prof, result_att = None, None
+    for i in range(order):
+        lda = LinearDiscriminantAnalysis(n_components=n_components//(order))
+        if dataset.name == "spook_sw3":
+            lda.fit(x_prof[:20000, i*n_poi_snr:(i+1)*n_poi_snr], dataset.profiling_shares[ :20000,target_byte,  i])
+        elif dataset.name == "simulate":
+            lda.fit(x_prof[:20000, i*n_poi_snr:(i+1)*n_poi_snr], dataset.profiling_shares[ :20000,  i])
+        else:
+             temp = dataset.share1_profiling[target_byte, :20000] if i == 0 else dataset.share2_profiling[target_byte, :20000]
+             lda.fit(x_prof[:20000, i*n_poi_snr:(i+1)*n_poi_snr], temp)
+        
+        s1_prof = lda.transform(x_prof[:, i*n_poi_snr:(i+1)*n_poi_snr] )
+        s1_att = lda.transform(x_att[:, i*n_poi_snr:(i+1)*n_poi_snr] )
+        result_prof = s1_prof if i == 0 else np.append(result_prof, s1_prof, axis=1)
+        result_att = s1_att if i == 0 else np.append(result_att, s1_att, axis=1)
+    return result_prof, result_att
 
 def get_pca_features(dataset, target_byte: int, n_components=10):
-    x_prof, x_att = get_features(dataset, target_byte, n_poi=200)
 
-    pca = PCA(n_components=n_components//2)
-    pca.fit(x_prof[:20000, :100])
-    s1_prof = pca.transform(x_prof[:, :100] )
-    s1_att = pca.transform(x_att[:, :100] )
-    pca = PCA(n_components=n_components//2)
-    pca.fit(x_prof[:20000, 100:])
-    s2_prof = pca.transform(x_prof[:, 100:] )
-    s2_att = pca.transform(x_att[:, 100:] )
-    return np.append(s1_prof, s2_prof, axis=1), np.append(s1_att, s2_att, axis=1)
+    order = 1 if not  (dataset.name=="simulate" or dataset.name =="spook_sw3") else dataset.order
+    order = order + 1
+    n_poi_snr = min(100, dataset.ns//order)
+    x_prof, x_att = get_features(dataset, target_byte, n_poi=n_poi_snr*order)
+
+    result_prof, result_att = None, None
+    for i in range(order):
+        pca = PCA(n_components=n_components//(order))
+        pca.fit(x_prof[:20000, i*n_poi_snr:(i+1)*n_poi_snr])
+        s1_prof = pca.transform(x_prof[:, i*n_poi_snr:(i+1)*n_poi_snr] )
+        s1_att = pca.transform(x_att[:, i*n_poi_snr:(i+1)*n_poi_snr] )
+        result_prof = s1_prof if i == 0 else np.append(result_prof, s1_prof, axis=1)
+        result_att = s1_att if i == 0 else np.append(result_att, s1_att, axis=1)
+    return result_prof, result_att
 
 
 
@@ -93,6 +124,35 @@ def get_features_bit_per(x, y, bit, points):
     ind_snr_masks_poi_sm = np.argsort(temp)[::-1][:points]
     ind_snr_masks_poi_sm_sorted = np.sort(ind_snr_masks_poi_sm)
     return ind_snr_masks_poi_sm_sorted
+
+def get_snr_shares(dataset, target_byte):
+    if dataset.name == "simulate":
+        return get_snr_shares_sim(dataset)
+    elif dataset.name =="spook_sw3":
+        return get_snr_shares_spook(dataset, target_byte)
+    result_arr = np.zeros((2, dataset.ns))
+    result_arr[0, :]= snr_fast(np.array(dataset.x_profiling[:20000], dtype=np.int16), np.asarray(dataset.share1_profiling[target_byte, :20000]))
+    result_arr[1, :] = snr_fast(np.array(dataset.x_profiling[:20000], dtype=np.int16), np.asarray(dataset.share2_profiling[target_byte, :20000]))
+    return result_arr
+
+def get_snr_shares_sim(dataset):
+    result_arr = np.zeros((dataset.order+ 1, dataset.ns))
+    order = dataset.order + 1
+    for i in range(order):
+        result_arr[i, :]= snr_fast(np.array(dataset.x_profiling[:20000], dtype=np.int16), np.asarray(dataset.profiling_shares[ :20000, i]))
+    return result_arr
+
+
+
+
+
+def get_snr_shares_spook(dataset, target_byte):
+    result_arr = np.zeros((dataset.order+1, dataset.ns))
+    order = dataset.order+1
+    for i in range(order):
+        result_arr[i, :]= snr_fast(np.array(dataset.x_profiling[:20000], dtype=np.int16), np.asarray(dataset.prof_shares[ :20000, target_byte, i]))
+    return result_arr
+
 
 def load_dataset(identifier: str, path: str, target_byte: int, traces_dim: int, leakage_model="ID", num_features=-1):
     
@@ -119,6 +179,8 @@ def load_dataset(identifier: str, path: str, target_byte: int, traces_dim: int, 
                                                          dataset_file,
                                                          number_of_samples=traces_dim)
     return dataset
+
+
 
 def scale_dataset(prof_set, attack_set, scaler):
         prof_new = scaler.fit_transform(prof_set)

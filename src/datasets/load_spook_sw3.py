@@ -2,7 +2,6 @@ import numpy as np
 import h5py
 from tensorflow.keras.utils import *
 from sklearn.preprocessing import StandardScaler, MinMaxScaler
-from src.utils.stat_helper import other_snr
 import matplotlib.pyplot as plt
 
 def hw(input: np.uint32):
@@ -86,6 +85,7 @@ class ReadSpookSW3:
         validation_masks = profiling_mask[self.n_profiling:self.n_profiling+self.n_validation]
         validation_seeds = profiling_seed[self.n_profiling:self.n_profiling+self.n_validation]
         attack_plaintexts = attack_plaintext[:self.n_attack]
+        self.order = 2
         attack_keys = attack_key[:self.n_attack]
         #attack_masks = attack_mask[:self.n_attack]
 
