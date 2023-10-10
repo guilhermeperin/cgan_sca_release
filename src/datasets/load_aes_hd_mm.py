@@ -88,20 +88,23 @@ class ReadAESHDMM:
 
         self.profiling_keys = None
         self.profiling_plaintexts = None
+        self.profiling_masks = None
         self.attack_plaintexts = None
+        self.attack_masks = None
+        self.attack_keys = None
 
         self.load_dataset()
 
     def load_dataset(self):
         in_file = h5py.File(self.file_path, "r")
 
-        profiling_samples = np.array(in_file['Profiling_traces/traces'], dtype=np.float64)
+        profiling_samples = np.array(in_file['Profiling_traces/traces'][:self.n_profiling])
+        attack_samples = np.array(in_file['Attack_traces/traces'][:self.n_attack + self.n_validation])
         profiling_plaintext = in_file['Profiling_traces/metadata']['plaintext']
         profiling_ciphertext = in_file['Profiling_traces/metadata']['ciphertext']
         profiling_key = in_file['Profiling_traces/metadata']['key']
         profiling_mask = in_file['Profiling_traces/metadata']['masks']
 
-        attack_samples = np.array(in_file['Attack_traces/traces'], dtype=np.float64)
         attack_plaintext = in_file['Attack_traces/metadata']['plaintext']
         attack_ciphertext = in_file['Attack_traces/metadata']['ciphertext']
         attack_key = in_file['Attack_traces/metadata']['key']
@@ -122,11 +125,9 @@ class ReadAESHDMM:
 
         self.profiling_keys = profiling_keys
         self.profiling_plaintexts = profiling_plaintexts
-        self.profiling_ciphertexts = profiling_ciphertexts
         self.profiling_masks = profiling_masks
         self.attack_keys = attack_keys
         self.attack_plaintexts = attack_plaintexts
-        self.attack_ciphertexts = attack_ciphertexts
         self.attack_masks = attack_masks
 
         self.x_profiling = profiling_samples[:, self.fs:self.fs + self.ns]
@@ -238,11 +239,11 @@ class ReadAESHDMM:
         """ get key byte from round key 10 """
         k_i = [ki[10][self.target_byte] for ki in round_keys]
         if self.leakage_model == "HW":
-            return [bin(inv_s_box[int(ci) ^ int(ki)] ^ int(cj)).count("1") for ci, cj, ki in
-                    zip(np.asarray(c_i[:]), np.asarray(c_j[:]), np.asarray(k_i[:]))]
+            return np.array([bin(inv_s_box[int(ci) ^ int(ki)] ^ int(cj)).count("1") for ci, cj, ki in
+                             zip(np.asarray(c_i[:]), np.asarray(c_j[:]), np.asarray(k_i[:]))])
         else:
-            return [inv_s_box[int(ci) ^ int(ki)] ^ int(cj) for ci, cj, ki in
-                    zip(np.asarray(c_i[:]), np.asarray(c_j[:]), np.asarray(k_i[:]))]
+            return np.array([inv_s_box[int(ci) ^ int(ki)] ^ int(cj) for ci, cj, ki in
+                             zip(np.asarray(c_i[:]), np.asarray(c_j[:]), np.asarray(k_i[:]))])
 
     def create_labels_key_guess(self, ciphertexts):
         labels_key_hypothesis = np.zeros((256, len(ciphertexts)), dtype='int64')

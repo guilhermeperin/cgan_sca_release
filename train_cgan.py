@@ -273,7 +273,7 @@ class TrainCGAN:
         # plt.savefig(f"{self.dir_results}/ge.png")
         # plt.close()
 
-        np.savez(f"{self.dir_results}/ge_vector.npz",
+        np.savez(f"{self.dir_results}/ge_vector_epoch_{epoch}.npz",
                  ge_vector_fake=ge_vector_fake,
                 #  ge_vector_real=ge_vector_real,
                 #  ge_vector_real_original=ge_vector_real_original,
@@ -313,12 +313,19 @@ class TrainCGAN:
                     self.g_loss.append(g_loss)
                     self.d_loss.append(d_loss)
 
-                    # plt.plot(self.real_acc, label="Real")
-                    # plt.plot(self.fake_acc, label="Fake")
-                    # plt.axhline(y=0.5, linestyle="dashed", color="black")
-                    # plt.legend()
-                    # plt.savefig(f"{self.dir_results}/acc.png")
-                    # plt.close()
+                    plt.plot(self.real_acc, label="Real")
+                    plt.plot(self.fake_acc, label="Fake")
+                    plt.axhline(y=0.5, linestyle="dashed", color="black")
+                    plt.legend()
+                    plt.savefig(f"{self.dir_results}/acc.png")
+                    plt.close()
+
+                    plt.plot(self.g_loss, label="g_loss")
+                    plt.plot(self.d_loss, label="d_Loss")
+                    plt.legend()
+                    plt.savefig(f"{self.dir_results}/loss.png")
+                    plt.close()
+
                     print(
                         f"epoch: {e}, batch: {b}, d_loss: {d_loss}, g_loss: {g_loss}, real_acc: {self.models.real_accuracy_metric.result()}, fake_acc: {self.models.fake_accuracy_metric.result()}")
 

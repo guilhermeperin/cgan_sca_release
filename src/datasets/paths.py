@@ -45,7 +45,7 @@ def get_dataset_filepath(dataset_root_folder, dataset_name, npoi, leakage_model)
                 2200: f"{dataset_root_folder}/ches_ctf.h5",
             },
             "aes_hd_mm": {
-                3250: f"{dataset_root_folder}/aes_hd_mm.h5",
+                3125: f"{dataset_root_folder}/aes_hd_mm.h5",
             },
 
             "spook_sw3": {
@@ -95,7 +95,7 @@ def get_dataset_filepath(dataset_root_folder, dataset_name, npoi, leakage_model)
                 2200: f"{dataset_root_folder}/ches_ctf.h5",
             },
             "aes_hd_mm": {
-                3250: f"{dataset_root_folder}/aes_hd_mm.h5",
+                3125: f"{dataset_root_folder}/aes_hd_mm.h5",
             }, 
             "spook_sw3": {
             6250: f"{dataset_root_folder}/sw3/spook_sw3_nopoi_window_20.h5."}
