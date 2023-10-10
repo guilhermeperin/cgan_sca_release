@@ -131,28 +131,36 @@ class TrainCGAN:
         plt.close()
 
     def compute_snr_target_features(self, epoch, synthetic_traces=True):
-        batch_size_target = 3000
+        batch_size_target = 8000
 
         # prepare traces from target dataset
         rnd_target = random.randint(0, len(self.datasets.dataset_target.x_attack) - batch_size_target)
 
+
+
         if synthetic_traces:
-            traces_target = self.datasets.dataset_target.x_attack[rnd_target:rnd_target + batch_size_target]
+            rnd_target = random.randint(0, len(self.datasets.dataset_target.x_validation) - batch_size_target) if self.datasets.dataset_target.name=="spook_sw3" else rnd_target
+            traces_target =  self.datasets.dataset_target.x_validation[rnd_target:rnd_target + batch_size_target] if self.datasets.dataset_target.name=="spook_sw3" else self.datasets.dataset_target.x_attack[rnd_target:rnd_target + batch_size_target]
             features_target = self.models.generator.predict([traces_target])
         else:
             features_target = self.datasets.features_target_attack[rnd_target:rnd_target + batch_size_target]
-
-        snr_target_features_share_1 = snr_fast(features_target,
-                                               self.datasets.dataset_target.share1_attack[self.datasets.target_byte_target,
-                                               rnd_target:rnd_target + batch_size_target]).tolist()
-        snr_target_features_share_2 = snr_fast(features_target,
-                                               self.datasets.dataset_target.share2_attack[self.datasets.target_byte_target,
-                                               rnd_target:rnd_target + batch_size_target]).tolist()
+        snr_target_features_share_1, snr_target_features_share_2, snr_target_features_share_3 = [],[],[]
+        if not self.datasets.dataset_target.name == "spook_sw3":
+            snr_target_features_share_1 = snr_fast(features_target, self.datasets.dataset_target.share1_attack[self.datasets.target_byte_target, rnd_target:rnd_target + batch_size_target]).tolist()
+            snr_target_features_share_2 = snr_fast(features_target, self.datasets.dataset_target.share2_attack[self.datasets.target_byte_target, rnd_target:rnd_target + batch_size_target]).tolist()
+        else:
+            snr_target_features_share_1 = snr_fast(features_target, self.datasets.dataset_target.val_shares[rnd_target:rnd_target + batch_size_target, self.datasets.target_byte_target, 0]).tolist()
+            snr_target_features_share_2 = snr_fast(features_target, self.datasets.dataset_target.val_shares[ rnd_target:rnd_target + batch_size_target, self.datasets.target_byte_target, 1]).tolist()
+            snr_target_features_share_3 = snr_fast(features_target, self.datasets.dataset_target.val_shares[rnd_target:rnd_target + batch_size_target, self.datasets.target_byte_target, 2]).tolist()
         plt.rc('axes', labelsize=16)
         plt.rc('xtick', labelsize=12)
         plt.rc('ytick', labelsize=12)
         plt.plot(snr_target_features_share_1, label="Share 1")
         plt.plot(snr_target_features_share_2, label="Share 2")
+        if synthetic_traces and self.datasets.dataset_target.name == "spook_sw3":
+            plt.plot(snr_target_features_share_3, label="Share 3")
+            self.max_snr_share_3.append(np.max(snr_target_features_share_3))
+
         plt.xlim([1, self.datasets.features_dim])
         plt.xlabel("Features")
         plt.ylabel("SNR")
@@ -167,6 +175,7 @@ class TrainCGAN:
         if synthetic_traces:
             self.max_snr_share_1.append(np.max(snr_target_features_share_1))
             self.max_snr_share_2.append(np.max(snr_target_features_share_2))
+
             self.real_acc_per_epoch.append(self.models.real_accuracy_metric.result())
             self.fake_acc_per_epoch.append(self.models.fake_accuracy_metric.result())
             fig, ax1 = plt.subplots()
@@ -174,6 +183,8 @@ class TrainCGAN:
             ax1.set_ylabel("SNR")
             ax1.plot(self.max_snr_share_1, label="Max SNR Share 1")
             ax1.plot(self.max_snr_share_2, label="Max SNR Share 2")
+            if self.datasets.dataset_target.name == "spook_sw3":
+                ax1.plot(self.max_snr_share_3, label="Max SNR Share 3")
             ax2 = ax1.twinx()
             ax2.set_ylabel("Accuracy")
             ax2.plot(self.real_acc_per_epoch,linestyle='dotted', label="Real Accuracy")

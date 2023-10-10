@@ -64,7 +64,17 @@ class PrepareDatasets:
         if identifier == "ascad-variable":
             dataset = ReadASCADr(n_prof, n_val, n_attack, target_byte, args["leakage_model"], dataset_file, number_of_samples=traces_dim)
         if identifier == "simulate":
-            dataset = SimulateHigherOrder(1, n_prof, n_attack, args["features"]//2, args["features"], leakage_model=args["leakage_model"], rsm_mask=args["dataset_target"]=="dpa_v42")
+            order = 2 if args["dataset_target"] == "spook_sw3" else 1
+            informative = args["features"]//(order+1) if args["feature_select"]== "snr" else 100
+            total =  args["features"] if args["feature_select"]== "snr" else (100 * (order+1))
+            print(informative, total)
+            dataset = SimulateHigherOrder(order, n_prof, n_attack, informative, 
+                                          total, leakage_model=args["leakage_model"], rsm_mask=args["dataset_target"]=="dpa_v42")
+            
+            if args["feature_select"]== "pca":
+                dataset.x_profiling, dataset.x_attack = get_pca_features(dataset, 0, num_features)
+            elif args["feature_select"]== "lda":
+                dataset.x_profiling, dataset.x_attack = get_lda_features(dataset, 0, num_features)
         if identifier == "ASCAD":
             dataset = ReadASCADf(n_prof, n_val, n_attack, target_byte, args["leakage_model"], dataset_file, number_of_samples=traces_dim)
         if identifier == "eshard":
@@ -76,6 +86,9 @@ class PrepareDatasets:
                                           number_of_samples=traces_dim)
         if identifier == "aes_hd_mm":
             dataset = ReadAESHDMM(n_prof, n_val, n_attack, target_byte, args["leakage_model"], dataset_file, number_of_samples=traces_dim)
+        if identifier == "spook_sw3":
+                 return ReadSpookSW3(n_prof, n_val, n_attack, target_byte, args["leakage_model"], dataset_file,
+                                   number_of_samples=traces_dim)
 
         if implement_reference_feature_selection:
             self.generate_features_h5(dataset, target_byte, reference_features_shortcut, args["feature_select"])

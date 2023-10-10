@@ -49,7 +49,7 @@ def get_dataset_filepath(dataset_root_folder, dataset_name, npoi, leakage_model)
             },
 
             "spook_sw3": {
-            6250: f"{dataset_root_folder}/sw3/spook_sw3_nopoi_window_20.h5.",
+                6250: f"D:/Datasets/sw3/spook_sw3_nopoi_window_20.h5.",
         },
         }
     else:
