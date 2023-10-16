@@ -86,6 +86,12 @@ def get_arguments():
 
     """ feature_select: Method for generating reference features """
     parser.add_argument("-feature_select", "--feature_select", default="snr")
+    
+    """ n_profiling_reference: number of profiling traces from the reference dataset (always profiling set from .h5 datasets) """
+    parser.add_argument("-disc", "--disc", default="dropout")
+
+    """ sim_noise: Noise added to simulation. """
+    parser.add_argument("-sim_noise", "--sim_noise", default=2.0)
 
     return parser.parse_args()
 
@@ -115,7 +121,9 @@ if __name__ == "__main__":
         "batch_size": int(arg_list.batch_size),
         "std_gaussian_noise_reference": float(arg_list.std_gaussian_noise_reference),
         "std_gaussian_noise_target": float(arg_list.std_gaussian_noise_target),
+        "disc": str(arg_list.disc),
         "feature_select": str(arg_list.feature_select),
+        "sim_noise": float(arg_list.sim_noise),
     }
 
     cgan = CGANSCA(args=arguments)

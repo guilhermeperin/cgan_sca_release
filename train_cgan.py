@@ -5,7 +5,7 @@ import matplotlib.pyplot as plt
 import random
 from utils import *
 from profiling_and_attack import *
-
+from sklearn.utils import shuffle
 tf.keras.backend.set_floatx('float64')
 
 
@@ -338,7 +338,9 @@ class TrainCGAN:
                 self.compute_snr_target_features(e, synthetic_traces=False)
             if (e + 1) % 1== 0:
                 #Redo shuffling 
-
+                self.datasets.dataset_target.x_profiling, self.datasets.dataset_target.profiling_labels, self.datasets.dataset_target.y_profiling = shuffle(self.datasets.dataset_target.x_profiling, self.datasets.dataset_target.profiling_labels, self.datasets.dataset_target.y_profiling)
+                self.datasets.dataset_reference.x_profiling, self.datasets.dataset_reference.profiling_labels = shuffle(self.datasets.dataset_reference.x_profiling, self.datasets.dataset_reference.profiling_labels)
+                  
                 #self.datasets.dataset_target.x_profiling =  augment_renew(self.datasets.dataset_target.x_profiling, 15, self.args["n_profiling_target"])
                 self.compute_snr_target_features(e)
                 # self.attack_eval_synthetic(e)

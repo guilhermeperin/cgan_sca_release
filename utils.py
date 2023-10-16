@@ -74,6 +74,7 @@ def get_lda_features(dataset, target_byte: int, n_components=10):
     x_prof, x_att = get_features(dataset, target_byte, n_poi=n_poi_snr*order)
 
     result_prof, result_att = None, None
+    print(n_components//(order))
     for i in range(order):
         lda = LinearDiscriminantAnalysis(n_components=n_components//(order))
         if dataset.name == "spook_sw3":
@@ -131,15 +132,15 @@ def get_snr_shares(dataset, target_byte):
     elif dataset.name =="spook_sw3":
         return get_snr_shares_spook(dataset, target_byte)
     result_arr = np.zeros((2, dataset.ns))
-    result_arr[0, :]= snr_fast(np.array(dataset.x_profiling[:20000], dtype=np.int16), np.asarray(dataset.share1_profiling[target_byte, :20000]))
-    result_arr[1, :] = snr_fast(np.array(dataset.x_profiling[:20000], dtype=np.int16), np.asarray(dataset.share2_profiling[target_byte, :20000]))
+    result_arr[0, :]= snr_fast(np.array(dataset.x_profiling[:min(dataset.x_profiling.shape[0], 20000)], dtype=np.int16), np.asarray(dataset.share1_profiling[target_byte, :min(dataset.x_profiling.shape[0], 20000)]))
+    result_arr[1, :] = snr_fast(np.array(dataset.x_profiling[:min(dataset.x_profiling.shape[0], 20000)], dtype=np.int16), np.asarray(dataset.share2_profiling[target_byte, :min(dataset.x_profiling.shape[0], 20000)]))
     return result_arr
 
 def get_snr_shares_sim(dataset):
     result_arr = np.zeros((dataset.order+ 1, dataset.ns))
     order = dataset.order + 1
     for i in range(order):
-        result_arr[i, :]= snr_fast(np.array(dataset.x_profiling[:20000], dtype=np.int16), np.asarray(dataset.profiling_shares[ :20000, i]))
+        result_arr[i, :]= snr_fast(np.array(dataset.x_profiling[:min(dataset.x_profiling.shape[0], 20000)], dtype=np.int16), np.asarray(dataset.profiling_shares[ :min(dataset.x_profiling.shape[0], 20000), i]))
     return result_arr
 
 
@@ -150,7 +151,7 @@ def get_snr_shares_spook(dataset, target_byte):
     result_arr = np.zeros((dataset.order+1, dataset.ns))
     order = dataset.order+1
     for i in range(order):
-        result_arr[i, :]= snr_fast(np.array(dataset.x_profiling[:20000], dtype=np.int16), np.asarray(dataset.prof_shares[ :20000, target_byte, i]))
+        result_arr[i, :]= snr_fast(np.array(dataset.x_profiling[:min(dataset.x_profiling.shape[0], 20000)], dtype=np.int16), np.asarray(dataset.prof_shares[ :min(dataset.x_profiling.shape[0], 20000), target_byte, i]))
     return result_arr
 
 

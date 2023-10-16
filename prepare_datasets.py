@@ -69,7 +69,7 @@ class PrepareDatasets:
             total =  args["features"] if args["feature_select"]== "snr" else (100 * (order+1))
             print(informative, total)
             dataset = SimulateHigherOrder(order, n_prof, n_attack, informative, 
-                                          total, leakage_model=args["leakage_model"], rsm_mask=args["dataset_target"]=="dpa_v42")
+                                          total, leakage_model=args["leakage_model"], rsm_mask=args["dataset_target"]=="dpa_v42", add_noise=args["sim_noise"])
             
             if args["feature_select"]== "pca":
                 dataset.x_profiling, dataset.x_attack = get_pca_features(dataset, 0, num_features)

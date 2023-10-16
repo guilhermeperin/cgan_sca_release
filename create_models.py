@@ -67,6 +67,7 @@ class CreateModels:
             # create the generator
             self.generator = self.define_generator_random(args["dataset_target_dim"], args["features"])
             self.generator = self.define_generator(args["dataset_target_dim"], args["features"])
+            self.discriminator = self.define_discriminator(args["features"], n_classes=classes)
 
     def best_models_10000_var_dpa(self):
         self.hp_d = {
@@ -245,6 +246,7 @@ class CreateModels:
         y = Flatten()(y)
 
         in_features = Input(shape=(features_dim,))
+        #in_features = Dropout(0.5)(in_features)
 
         merge = Concatenate()([y, in_features])
 
@@ -389,8 +391,8 @@ class CreateModels:
 
         in_traces = Input(shape=(input_dim,))
         # x = Lambda(self.add_gaussian_noise)(in_traces)
-        x = Dense(200, activation='linear')(in_traces)
-        x = Dense(100, activation='linear')(x)
+        x = Dense(400, activation='linear')(in_traces)
+        x = Dense(200, activation='linear')(x)
         x = Dense(100, activation='linear')(x)
         out_layer = Dense(output_dim, activation='linear')(x)
 
