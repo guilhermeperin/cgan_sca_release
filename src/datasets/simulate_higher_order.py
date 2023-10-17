@@ -13,10 +13,13 @@ vec_hw = np.vectorize(hw)
 
 class SimulateHigherOrder():
 
-    def __init__(self, order, num_traces, num_attack_traces,  num_informative_features, num_features, leakage_model = "ID", rsm_mask=False, add_noise=2.0) -> None:
+    def __init__(self, args, order, num_traces, num_attack_traces,  num_informative_features, num_features) -> None:
 
+        add_noise = args["sim_noise"]
+        leakage_model = args["leakage_model"]
         
         self.order = order
+        self.pick_leakage_spread(args["sim_leakage"])
         print(f"sim_noise={add_noise}")
         self.num_traces = num_traces
         self.n_profiling = num_traces
@@ -24,7 +27,7 @@ class SimulateHigherOrder():
         self.num_features = num_features
         self.num_informative_features = num_informative_features
         self.num_leakage_regions = 2
-        self.rsm_mask = rsm_mask
+        self.rsm_mask = args["dataset_target"] == "dpa_v42"
         self.noise = add_noise
         if num_features//(order+1)==num_informative_features:
             self.x_profiling, self.profiling_masks, self.profiling_shares  = self.only_informative(num_traces)
@@ -90,7 +93,7 @@ class SimulateHigherOrder():
                 
 
     def leakages_spread_real(self, shares, num_points, num_traces):
-        print("-------------------------------s")
+        print("------------real---s")
         leakage_spread = np.zeros((self.order +1, num_points, num_traces))
         sample_source = np.arange(0, 9)
         for share in range(self.order+1):
@@ -98,13 +101,11 @@ class SimulateHigherOrder():
             for i in range(num_points):
                 num_bits = np.random.randint(1, 5)
                 bits = np.random.choice(sample_source, num_bits, replace=False)
-                print(bits)
                 #bits = [(i//4)%8]
                 #print(bits)
                 #bits=[4, 5, 6, 7]
                 leakage = np.zeros_like(value)
                 for j in bits:
-                    print(j)
                     leakage = leakage + ((value >> j) & 1)
                 # if len(bits) == 1:
                 #     leakage = leakage* 3
@@ -112,14 +113,13 @@ class SimulateHigherOrder():
         return leakage_spread
     
     def leakage_spread_hw(self, shares, num_points, num_traces):
-        print("-------------------------------s")
+        print("-------------HW-------------s")
         leakage_spread = np.zeros((self.order +1, num_points, num_traces))
         for share in range(self.order+1):
             value = shares[:, share].copy()
             for i in range(num_points):
             
                 bits = [j for j in range(8)]
-                print(bits)
                 leakage = np.zeros_like(value)
                 for j in bits:
                     leakage = leakage + ((value >> j) & 1)
@@ -167,7 +167,7 @@ class SimulateHigherOrder():
 
        # traces = np.random.normal(0, 3, size=(num_traces, self.num_features))
 
-        leakage_values =self.leakage_spread_bit(shares=shares, num_points=self.num_informative_features, num_traces=num_traces)
+        leakage_values =self.leakage_func(shares=shares, num_points=self.num_informative_features, num_traces=num_traces)
         traces = np.random.normal(0, self.noise, size=(num_traces, self.num_features))
 
         for i in range(self.order + 1):
@@ -175,6 +175,17 @@ class SimulateHigherOrder():
                 traces[: , i*self.num_informative_features + j] += leakage_values[i, j, :]
         
         return traces, masks, shares 
+    
+    def pick_leakage_spread(self, lm):
+        if lm == "real":
+            self.leakage_func = self.leakages_spread_real
+        elif lm == "hw":
+            self.leakage_func = self.leakage_spread_hw
+        elif lm == "bit":
+            self.leakage_func = self.leakage_spread_bit
+        else:
+            self.leakage_func = self.leakages_spread
+
     
     def include_leakage_around_index(self, traces, index, share, leakage_values):
         print(index)
