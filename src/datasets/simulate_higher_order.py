@@ -110,6 +110,40 @@ class SimulateHigherOrder():
                 #     leakage = leakage* 3
                 leakage_spread[share, i, :] = leakage
         return leakage_spread
+    
+    def leakage_spread_hw(self, shares, num_points, num_traces):
+        print("-------------------------------s")
+        leakage_spread = np.zeros((self.order +1, num_points, num_traces))
+        for share in range(self.order+1):
+            value = shares[:, share].copy()
+            for i in range(num_points):
+            
+                bits = [j for j in range(8)]
+                print(bits)
+                leakage = np.zeros_like(value)
+                for j in bits:
+                    leakage = leakage + ((value >> j) & 1)
+                # if len(bits) == 1:
+                #     leakage = leakage* 3
+                leakage_spread[share, i, :] = leakage
+        return leakage_spread
+    
+    def leakage_spread_bit(self, shares, num_points, num_traces):
+        print("-------------------------------s")
+        leakage_spread = np.zeros((self.order +1, num_points, num_traces))
+        for share in range(self.order+1):
+            value = shares[:, share].copy()
+            for i in range(num_points):
+                bits = [i//(num_points//8) % 8]
+                print(bits)
+                leakage = np.zeros_like(value)
+                for j in bits:
+                    print(j)
+                    leakage = leakage + ((value >> j) & 1)
+                # if len(bits) == 1:
+                #     leakage = leakage* 3
+                leakage_spread[share, i, :] = leakage
+        return leakage_spread
 
 
 
@@ -133,12 +167,12 @@ class SimulateHigherOrder():
 
        # traces = np.random.normal(0, 3, size=(num_traces, self.num_features))
 
-        leakage_values =self.leakages_spread_real(shares=shares, num_points=self.num_informative_features, num_traces=num_traces)
+        leakage_values =self.leakage_spread_bit(shares=shares, num_points=self.num_informative_features, num_traces=num_traces)
         traces = np.random.normal(0, self.noise, size=(num_traces, self.num_features))
 
         for i in range(self.order + 1):
             for j in range(self.num_informative_features):
-                traces[: , i*self.num_informative_features + j] += leakage_values[-i-1, j, :]
+                traces[: , i*self.num_informative_features + j] += leakage_values[i, j, :]
         
         return traces, masks, shares 
     
