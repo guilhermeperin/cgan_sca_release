@@ -96,6 +96,9 @@ def get_arguments():
     """ sim_leakage: Function to emulate leakage in simulation. """
     parser.add_argument("-sim_leakage", "--sim_leakage", default="real")
 
+    """ sim_vary_noise: toggle the amount of noise per feature varies """
+    parser.add_argument("-sim_vary_noise", "--sim_vary_noise", default=False)
+
     return parser.parse_args()
 
 
@@ -128,6 +131,7 @@ if __name__ == "__main__":
         "feature_select": str(arg_list.feature_select),
         "sim_noise": float(arg_list.sim_noise),
         "sim_leakage": arg_list.sim_leakage,
+        "sim_vary_noise": bool(arg_list.sim_vary_noise)
     }
 
     cgan = CGANSCA(args=arguments)

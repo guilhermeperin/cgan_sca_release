@@ -19,6 +19,8 @@ class SimulateHigherOrder():
         leakage_model = args["leakage_model"]
         
         self.order = order
+        self.uni_noise=args["sim_vary_noise"]
+        print(args["sim_vary_noise"], self.uni_noise)
         self.pick_leakage_spread(args["sim_leakage"])
         print(f"sim_noise={add_noise}")
         self.num_traces = num_traces
@@ -168,11 +170,20 @@ class SimulateHigherOrder():
        # traces = np.random.normal(0, 3, size=(num_traces, self.num_features))
 
         leakage_values =self.leakage_func(shares=shares, num_points=self.num_informative_features, num_traces=num_traces)
-        traces = np.random.normal(0, self.noise, size=(num_traces, self.num_features))
+        if not self.uni_noise:
+            traces = np.random.normal(0, self.noise, size=(num_traces, self.num_features))
 
-        for i in range(self.order + 1):
-            for j in range(self.num_informative_features):
-                traces[: , i*self.num_informative_features + j] += leakage_values[i, j, :]
+            for i in range(self.order + 1):
+                for j in range(self.num_informative_features):
+                    traces[: , i*self.num_informative_features + j] += leakage_values[i, j, :]
+        else:
+            traces = np.zeros((num_traces, self.num_features))
+
+            for i in range(self.order + 1):
+                for j in range(self.num_informative_features):
+                    traces[: , i*self.num_informative_features + j] += leakage_values[i, j, :]
+                    temp = np.random.uniform(low=0, high=self.noise)
+                    traces[: , i*self.num_informative_features + j] += np.random.normal(0, temp, size=(num_traces))
         
         return traces, masks, shares 
     
