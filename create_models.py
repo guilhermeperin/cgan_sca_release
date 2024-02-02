@@ -6,19 +6,29 @@ from tensorflow.keras.models import *
 from tensorflow.keras.optimizers import *
 from tensorflow.keras.regularizers import *
 import tensorflow.keras.backend as K
+from adahessian import AdaHessian
 import random
 
 
 
 class CreateModels:
 
-    def __init__(self, args, random_hp=False):
+    def __init__(self, args, random_hp=False, include_pretrain=False):
         # helper functions for tensorflow compiling
         self.real_accuracy_metric = BinaryAccuracy()
         self.fake_accuracy_metric = BinaryAccuracy()
         self.cross_entropy = BinaryCrossentropy(from_logits=True)
         self.cross_entropy_disc = BinaryCrossentropy(from_logits=True)
-        
+
+        if include_pretrain:
+            self.generator_optimizer = AdaHessian(0.002)
+            self.discriminator_optimizer = tf.keras.optimizers.Adam(0.0025, beta_1=0.5)
+            self.affine_mod = self.pretrain_affine_part(args["features"])
+            self.bool_mod = self.pre_train_bool_part(args["features"])
+            self.base_model = self.combine(args["features"], self.affine_mod, self.bool_mod)
+            self.discriminator = self.disc_with_pretrain(args["features"], self.base_model)
+            self.generator = self.generator = self.define_generator(args["dataset_target_dim"], args["features"])
+            return
         if random_hp:
             self.hp_d = {
                 "disc": random.choice(["bilinear", "dropout"]),
@@ -236,6 +246,44 @@ class CreateModels:
 
     def generator_loss(self, fake):
         return self.cross_entropy(tf.ones_like(fake), fake)
+    
+    def disc_with_pretrain_random(self, features_dim: int,pretrain_model, n_classes: int = 256, kern_init='random_normal'):
+        # label input
+        in_label = Input(shape=1)
+        y = Embedding(n_classes, n_classes)(in_label)
+        for l_i in range(self.hp_d["layers_embed"]):
+            y = Dense(self.hp_d["neurons_embed"], kernel_initializer=kern_init)(y)
+            y = LeakyReLU()(y)
+        #y = LeakyReLU()(y)
+        y = Flatten()(y)
+
+        in_features = Input(shape=(features_dim,))
+
+        feat_pros = pretrain_model(in_features)
+        merge = Concatenate()([y, feat_pros])
+
+
+        # x = Dense(100, kernel_initializer=kern_init)(merge)
+        # x = LeakyReLU()(x)
+        # x = Dropout(0.60)(x)
+        # x = Dense(100, kernel_initializer=kern_init)(merge)
+        # x = LeakyReLU()(x)
+        # x = Dropout(0.60)(x)
+        x = None
+        for l_i in range(self.hp_d["layers_dropout"]):
+            x = Dense(self.hp_d["neurons_dropout"], kernel_initializer=kern_init)(merge if l_i == 0 else x)
+            x = LeakyReLU()(x)
+            x = Dropout(self.hp_d["dropout"])(x)
+
+
+        # output
+        out_layer = Dense(1, activation='sigmoid')(x)
+
+        # model = Model([input_traces, in_label, in_features], out_layer)
+        model = Model([in_label, in_features], out_layer)
+        # model.compile(loss='binary_crossentropy', optimizer=Adam(learning_rate=self.hp_d["learning_rate"]), metrics=['accuracy'])
+        model.summary()
+        return model
 
     def define_discriminator(self, features_dim: int, n_classes: int = 256, kern_init='random_normal'):
         # label input
@@ -391,9 +439,9 @@ class CreateModels:
 
         in_traces = Input(shape=(input_dim,))
         # x = Lambda(self.add_gaussian_noise)(in_traces)
-        x = Dense(400, activation='linear')(in_traces)
-        x = Dense(200, activation='linear')(x)
-        x = Dense(100, activation='linear')(x)
+        x = Dense(100, activation='selu')(in_traces)
+        x = Dense(100, activation='selu')(x)
+        x = Dense(100, activation='selu')(x)
         out_layer = Dense(output_dim, activation='linear')(x)
 
         model = Model([in_traces], out_layer)
@@ -426,6 +474,38 @@ class CreateModels:
         model.summary()
         return model
 
+    def disc_with_pretrain(self, features_dim: int,pretrain_model, n_classes: int = 256, kern_init='random_normal'):
+        # label input
+        in_label = Input(shape=1)
+        y = Embedding(n_classes, n_classes)(in_label)
+        y = Dense(100, kernel_initializer=kern_init)(y)
+        #y = LeakyReLU()(y)
+        y = Flatten()(y)
+
+        in_features = Input(shape=(features_dim,))
+
+        feat_pros = pretrain_model(in_features)
+        merge = Concatenate()([y, feat_pros])
+
+        # x = Dense(100, kernel_initializer=kern_init)(merge)
+        # x = LeakyReLU()(x)
+        # x = Dropout(0.60)(x)
+        # x = Dense(100, kernel_initializer=kern_init)(merge)
+        # x = LeakyReLU()(x)
+        # x = Dropout(0.60)(x)
+        x = Dense(100, kernel_initializer=kern_init)(merge)
+        x = LeakyReLU()(x)
+        x = Dropout(0.60)(x)
+
+        # output
+        out_layer = Dense(1, activation='sigmoid')(x)
+
+        # model = Model([input_traces, in_label, in_features], out_layer)
+        model = Model([in_label, in_features], out_layer)
+        # model.compile(loss='binary_crossentropy', optimizer=Adam(learning_rate=self.hp_d["learning_rate"]), metrics=['accuracy'])
+        model.summary()
+        return model
+
     # define a random generator model
     def define_generator_random(self, input_dim: int, output_dim: int):
 
@@ -440,4 +520,47 @@ class CreateModels:
 
         model = Model([in_traces], out_layer)
         model.summary()
+        return model
+    def pre_train_model(self, input_dim: int):
+        in_features = Input(shape=(input_dim, ))
+        x = Dense(20, activation='selu')(in_features)
+        x = Dense(20, activation='selu')(x)
+        out = Dense(20, activation='selu')(x)
+        model = Model(inputs= in_features, outputs=out)
+        return model
+
+    def pre_train_bool_part(self, input_dim: int):
+        in_features = Input(shape=(input_dim, ))
+        x = Dense(10, activation='selu')(in_features)
+        x = Dense(10, activation='selu')(x)
+        out = Dense(8, activation='selu')(x)
+        model = Model(inputs= in_features, outputs=out)
+        return model
+
+    def pretrain_affine_part(self, input_dim: int):
+        in_features = Input(shape=(input_dim, ))
+        x = Dense(10, activation='selu')(in_features)
+        x = Dense(10, activation='selu')(x)
+        out = Dense(8, activation='selu')(x)
+        model = Model(inputs= in_features, outputs=out)
+        return model
+
+    def combine(self, input_dim: int, affine_mod, rest_mod):
+        in_features = Input(shape=(input_dim, ))
+        affine_part = affine_mod(in_features)
+        rest_part = rest_mod(in_features)
+        rest_part = Reshape((1, rest_part.shape[1]))(rest_part)
+        affine_part = Reshape((affine_part.shape[1], 1))(affine_part)
+        dot_lambda = lambda x_arr: tf.multiply(x_arr[0], x_arr[1])
+        x= Lambda(dot_lambda)([affine_part,rest_part])
+        x= Flatten()(x)
+
+        # # x = Flatten()(in_features_dot)
+        # dot_lambda = lambda x_arr: tf.multiply(x_arr[0], x_arr[1])
+        # x = Lambda(dot_lambda)([affine_part, rest_part])
+        #x = Concatenate()([affine_part, rest_part])
+        print(x.shape)
+        x = Dense(20, activation='selu')(x)
+        out = Dense(20, activation='selu')(x)
+        model = Model(inputs= in_features, outputs=out)
         return model

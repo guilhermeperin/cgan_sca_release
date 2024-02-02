@@ -6,6 +6,8 @@ import random
 from utils import *
 from profiling_and_attack import *
 from sklearn.utils import shuffle
+from create_models import *
+
 tf.keras.backend.set_floatx('float64')
 
 
@@ -13,8 +15,11 @@ class TrainCGAN:
 
     def __init__(self, args, models, dir_results):
         self.args = args
+        self.features_dim = args["features"]
         self.datasets = PrepareDatasets(self.args)
-        self.models = models
+        self.models = CreateModels(self.args, False, True)
+        self.create_pretrain_model_affine()
+        self.include_gen(self.args["dataset_target_dim"])
         self.dir_results = dir_results
 
         """ Metrics to assess quality of profiling attack: Max SNR, Guessing entropy, Ntraces_GE = 1, Perceived Information """
@@ -109,6 +114,10 @@ class TrainCGAN:
             snr_reference_features_share_2 = snr_fast(features_reference,
                                                     self.datasets.dataset_reference.profiling_shares[
                                                     rnd_reference:rnd_reference + batch_size_reference, 1])
+            if self.args["dataset_target"] in ["spook_sw3", "ascadv2"]:
+                    snr_reference_features_share_3 = snr_fast(features_reference,
+                                                    self.datasets.dataset_reference.profiling_shares[
+                                                    rnd_reference:rnd_reference + batch_size_reference, 2])
         # prepare traces from target dataset
         else:
 
@@ -123,12 +132,19 @@ class TrainCGAN:
         plt.rc('ytick', labelsize=12)
         plt.plot(snr_reference_features_share_1)
         plt.plot(snr_reference_features_share_2)
+        if self.args["dataset_target"] in ["spook_sw3", "ascadv2"]:
+            plt.plot(snr_reference_features_share_3)
         plt.xlim([1, self.datasets.features_dim])
         plt.xlabel("Features")
         plt.ylabel("SNR")
         
         plt.savefig(f"{self.dir_results}/snr_reference_features.png")
         plt.close()
+
+    def shuffle_datasets(self):
+        self.datasets.dataset_target.x_profiling, self.datasets.dataset_target.profiling_labels, self.datasets.dataset_target.y_profiling = shuffle(self.datasets.dataset_target.x_profiling, self.datasets.dataset_target.profiling_labels, self.datasets.dataset_target.y_profiling)
+        self.datasets.dataset_reference.x_profiling, self.datasets.dataset_reference.profiling_labels = shuffle(self.datasets.dataset_reference.x_profiling, self.datasets.dataset_reference.profiling_labels)
+
 
     def compute_snr_target_features(self, epoch, synthetic_traces=True):
         batch_size_target = 8000
@@ -143,21 +159,27 @@ class TrainCGAN:
             traces_target =  self.datasets.dataset_target.x_validation[rnd_target:rnd_target + batch_size_target] if self.datasets.dataset_target.name=="spook_sw3" else self.datasets.dataset_target.x_attack[rnd_target:rnd_target + batch_size_target]
             features_target = self.models.generator.predict([traces_target])
         else:
-            features_target = self.datasets.features_target_attack[rnd_target:rnd_target + batch_size_target]
+            #features_target = self.datasets.features_target_attack[rnd_target:rnd_target + batch_size_target]
+            return
         snr_target_features_share_1, snr_target_features_share_2, snr_target_features_share_3 = [],[],[]
-        if not self.datasets.dataset_target.name == "spook_sw3":
+        if not self.datasets.dataset_target.name == "spook_sw3" and not self.datasets.dataset_target.name == "ascadv2":
             snr_target_features_share_1 = snr_fast(features_target, self.datasets.dataset_target.share1_attack[self.datasets.target_byte_target, rnd_target:rnd_target + batch_size_target]).tolist()
             snr_target_features_share_2 = snr_fast(features_target, self.datasets.dataset_target.share2_attack[self.datasets.target_byte_target, rnd_target:rnd_target + batch_size_target]).tolist()
-        else:
+        elif self.datasets.dataset_target.name == "spook_sw3":
             snr_target_features_share_1 = snr_fast(features_target, self.datasets.dataset_target.val_shares[rnd_target:rnd_target + batch_size_target, self.datasets.target_byte_target, 0]).tolist()
             snr_target_features_share_2 = snr_fast(features_target, self.datasets.dataset_target.val_shares[ rnd_target:rnd_target + batch_size_target, self.datasets.target_byte_target, 1]).tolist()
             snr_target_features_share_3 = snr_fast(features_target, self.datasets.dataset_target.val_shares[rnd_target:rnd_target + batch_size_target, self.datasets.target_byte_target, 2]).tolist()
+        elif self.datasets.dataset_target.name == "ascadv2":
+            snr_target_features_share_1 = snr_fast(features_target, self.datasets.dataset_target.share1_attack[rnd_target:rnd_target + batch_size_target]).tolist()
+            snr_target_features_share_2 = snr_fast(features_target, self.datasets.dataset_target.share2_attack[rnd_target:rnd_target + batch_size_target]).tolist()
+
+            snr_target_features_share_3= snr_fast(features_target, self.datasets.dataset_target.share3_attack[ rnd_target:rnd_target + batch_size_target, self.datasets.target_byte_target]).tolist()
         plt.rc('axes', labelsize=16)
         plt.rc('xtick', labelsize=12)
         plt.rc('ytick', labelsize=12)
         plt.plot(snr_target_features_share_1, label="Share 1")
         plt.plot(snr_target_features_share_2, label="Share 2")
-        if synthetic_traces and self.datasets.dataset_target.name == "spook_sw3":
+        if synthetic_traces and (self.datasets.dataset_target.name == "spook_sw3" or self.datasets.dataset_target.name == "ascadv2"):
             plt.plot(snr_target_features_share_3, label="Share 3")
             self.max_snr_share_3.append(np.max(snr_target_features_share_3))
 
@@ -183,7 +205,7 @@ class TrainCGAN:
             ax1.set_ylabel("SNR")
             ax1.plot(self.max_snr_share_1, label="Max SNR Share 1")
             ax1.plot(self.max_snr_share_2, label="Max SNR Share 2")
-            if self.datasets.dataset_target.name == "spook_sw3":
+            if self.datasets.dataset_target.name == "spook_sw3" or self.datasets.dataset_target.name == "ascadv2":
                 ax1.plot(self.max_snr_share_3, label="Max SNR Share 3")
             ax2 = ax1.twinx()
             ax2.set_ylabel("Accuracy")
@@ -195,6 +217,9 @@ class TrainCGAN:
             
             plt.savefig(f"{self.dir_results}/max_snr_share_2.png")
             plt.close()
+            if self.datasets.dataset_target.name == "spook_sw3" or self.datasets.dataset_target.name == "ascadv2":
+                np.savez(f"{self.dir_results}/max_snr_shares.npz", max_snr_share_1=self.max_snr_share_1, max_snr_share_2=self.max_snr_share_2, max_snr_share_3=self.max_snr_share_3)
+                return
             np.savez(f"{self.dir_results}/max_snr_shares.npz", max_snr_share_1=self.max_snr_share_1, max_snr_share_2=self.max_snr_share_2)
 
     def attack_eval(self, epoch):
@@ -279,7 +304,7 @@ class TrainCGAN:
                 #  ge_vector_real_original=ge_vector_real_original,
                  )
 
-    # def attack_eval_synthetic(self, epoch):
+    # def attack_eval_synthetc(self, epoch):
     #     ge, nt, pi, ge_vector = attack(self.datasets, self.models.generator, self.datasets.features_dim)
     #     plt.xscale('log')
     #     plt.plot(ge_vector, label="50000 traces")
@@ -303,10 +328,10 @@ class TrainCGAN:
             for b in range(n_batches):
                 [features_reference, labels_reference] = self.generate_reference_samples(batch_size)
                 [traces_target, labels_target] = self.generate_target_samples(batch_size)
-
+                
                 # Custom training step for speed and versatility
                 g_loss, d_loss = self.train_step(traces_target, labels_target, features_reference, labels_reference)
-
+                self.full_class.train_on_batch(traces_target,to_categorical(labels_target, num_classes=256) )
                 if (b + 1) % 100 == 0:
                     self.real_acc.append(self.models.real_accuracy_metric.result())
                     self.fake_acc.append(self.models.fake_accuracy_metric.result())
@@ -332,19 +357,18 @@ class TrainCGAN:
 
 
             # Split eval steps up as attacking takes significant time while snr computation is fast
-            if e == 0:
+            self.shuffle_datasets()
+            if e == 0 and not self.datasets.dataset_target.name == "ches_ctf":
 
                 self.compute_snr_reference_features()
                 self.compute_snr_target_features(e, synthetic_traces=False)
-            if (e + 1) % 1== 0:
+            if (e + 1) % 1== 0 and not self.datasets.dataset_target.name == "ches_ctf":
                 #Redo shuffling 
-                self.datasets.dataset_target.x_profiling, self.datasets.dataset_target.profiling_labels, self.datasets.dataset_target.y_profiling = shuffle(self.datasets.dataset_target.x_profiling, self.datasets.dataset_target.profiling_labels, self.datasets.dataset_target.y_profiling)
-                self.datasets.dataset_reference.x_profiling, self.datasets.dataset_reference.profiling_labels = shuffle(self.datasets.dataset_reference.x_profiling, self.datasets.dataset_reference.profiling_labels)
-                  
+
                 #self.datasets.dataset_target.x_profiling =  augment_renew(self.datasets.dataset_target.x_profiling, 15, self.args["n_profiling_target"])
                 self.compute_snr_target_features(e)
                 # self.attack_eval_synthetic(e)
-            if (e + 1) % 200 == 0:
+            if (e + 1) % 200 == 0 and not self.datasets.dataset_target.name == "spook_sw3":
                 self.attack_eval(e)
                 # self.models.generator.save(
                 #     f"{self.dir_results}/generator_{self.datasets.traces_target_dim}_{self.datasets.traces_reference_dim}_epoch_{e}.h5")
@@ -353,3 +377,63 @@ class TrainCGAN:
                              real_acc=self.real_acc, fake_acc=self.fake_acc)
         self.models.generator.save(
             f"{self.dir_results}/generator_{self.datasets.traces_target_dim}_{self.datasets.traces_reference_dim}_epoch_{self.args['epochs'] - 1}.h5")
+    
+    def create_pretrain_model_affine(self):
+        affine_mod = self.models.affine_mod
+        affine_class = self.classification(self.features_dim, affine_mod, classes=255)
+        y_label = self.datasets.dataset_reference.profiling_masks[:, 0] -1
+        print(y_label.__contains__(255), y_label.__contains__(0))
+        y_attack = self.datasets.dataset_reference.attack_masks[:, 0] -1
+        optim = tf.keras.optimizers.Adam(0.01,  beta_1 =0.5)
+        affine_class.compile(optimizer=optim, loss='categorical_crossentropy', metrics=['accuracy'])
+        # optim = tf.keras.optimizers.Adam(0.00025)
+        affine_class.fit(x = self.datasets.dataset_reference.x_profiling, y =to_categorical(y_label, num_classes=255), validation_data=(self.datasets.dataset_reference.x_attack, to_categorical(y_attack, num_classes=255)),  epochs=5, shuffle=True, batch_size=200)
+
+        bool_part = self.models.bool_mod
+        class_model = self.classification(self.features_dim, bool_part)
+        optim = tf.keras.optimizers.Adam(0.01)
+        class_model.compile(optimizer=optim, loss='categorical_crossentropy', metrics=['accuracy'])
+        y_label = self.datasets.dataset_reference.profiling_shares[:, 1].copy()
+        y_attack= self.datasets.dataset_reference.attack_shares[:, 1].copy()
+        print(y_label.shape, self.datasets.dataset_reference.x_profiling.shape)
+        class_model.fit(x = self.datasets.dataset_reference.x_profiling, y =to_categorical(y_label), validation_data=(self.datasets.dataset_reference.x_attack, to_categorical(y_attack)),  epochs=5, shuffle=True, batch_size=200)
+
+        for i in range(self.datasets.dataset_reference.order, 1, -1):
+            print(f"-------------------{i}-----------------------")
+            y_label = y_label ^ self.datasets.dataset_reference.profiling_shares[:, i]
+            y_attack = y_attack ^ self.datasets.dataset_reference.attack_shares[:, i]
+            class_model.fit(x = self.datasets.dataset_reference.x_profiling, y =to_categorical(y_label), validation_data=(self.datasets.dataset_reference.x_attack, to_categorical(y_attack)),  epochs=30, shuffle=True, batch_size=200)
+        
+
+        print(f"-------------------AFFINE-----------------------")
+        self.models.bool_mod.trainable=False
+        self.models.affine_mod.trainable=False
+        base_model = self.models.base_model
+        self.class_model = self.classification(self.features_dim, base_model)
+        optim = tf.keras.optimizers.Adam(0.001)
+        self.class_model.compile(optimizer=optim, loss='categorical_crossentropy', metrics=['accuracy'])
+        y_label = self.datasets.dataset_reference.profiling_masks[:, -1]
+        y_attack = self.datasets.dataset_reference.attack_masks[:, -1]
+        self.class_model.fit(x = self.datasets.dataset_reference.x_profiling, y =to_categorical(y_label), validation_data=(self.datasets.dataset_reference.x_attack, to_categorical(y_attack)),  epochs=15, shuffle=True, batch_size=400)
+        #self.models.base_model.trainable = False
+        return
+    
+    
+    def classification(self, input_dim, pretrain_model, classes=256):
+        in_features = Input(shape=(input_dim, ))
+        
+        x = pretrain_model(in_features)
+        out = Dense(classes, activation='softmax')(x)
+        print(out.shape)
+        model = Model(inputs= in_features, outputs=out)
+        return model
+    
+    def include_gen(self, input_dim):
+        in_features = Input(shape=(input_dim, ))
+        x = self.models.generator(in_features)
+        out = self.class_model(x)
+        self.full_class = Model(inputs= in_features, outputs=out)
+        optim = tf.keras.optimizers.Adam(0.001,  beta_1 =0.5)
+        self.full_class.compile(optimizer=optim, loss='categorical_crossentropy', metrics=['accuracy'])
+        #y_label = self.datasets.dataset_reference.profiling_masks[:, -1]
+        return 

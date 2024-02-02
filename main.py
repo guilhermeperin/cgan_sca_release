@@ -94,7 +94,7 @@ def get_arguments():
     parser.add_argument("-sim_noise", "--sim_noise", default=2.0)
 
     """ sim_leakage: Function to emulate leakage in simulation. """
-    parser.add_argument("-sim_leakage", "--sim_leakage", default="real")
+    parser.add_argument("-sim_leakage", "--sim_leakage", default="bit")
 
     """ sim_vary_noise: toggle the amount of noise per feature varies """
     parser.add_argument("-sim_vary_noise", "--sim_vary_noise", default=False)

@@ -3,7 +3,7 @@ import h5py
 from tensorflow.keras.utils import *
 from sklearn.preprocessing import StandardScaler
 from numba import njit
-from scalib.metrics import SNR
+import matplotlib.pyplot as plt
 
 aes_sbox = np.array([
     0x63, 0x7C, 0x77, 0x7B, 0xF2, 0x6B, 0x6F, 0xC5, 0x30, 0x01, 0x67, 0x2B, 0xFE, 0xD7, 0xAB, 0x76,
@@ -83,13 +83,13 @@ def multGF256(a, b):
         return alog_table[(log_table[a] + log_table[b]) % 255]
 
 
-def get_snr_peaks(traces, labels, poi):
-    labels_for_snr = [[label] for label in labels]
-    snr = SNR(np=1, ns=traces.shape[1], nc=256)
-    snr.fit_u(l=np.array(traces, dtype=np.int16), x=np.array(labels_for_snr, dtype=np.uint16))
-    snr_val = snr.get_snr()
-    peaks = np.sort(np.argsort(snr_val[0])[::-1][:poi])
-    return traces[:, peaks], peaks
+# def get_snr_peaks(traces, labels, poi):
+#     labels_for_snr = [[label] for label in labels]
+#     snr = SNR(np=1, ns=traces.shape[1], nc=256)
+#     snr.fit_u(l=np.array(traces, dtype=np.int16), x=np.array(labels_for_snr, dtype=np.uint16))
+#     snr_val = snr.get_snr()
+#     peaks = np.sort(np.argsort(snr_val[0])[::-1][:poi])
+#     return traces[:, peaks], peaks
 
 
 # initial sample for masked sbox output initial leakage sample
@@ -112,9 +112,90 @@ range_1_dict = {
     15: 10890,
 }
 
+end_idx = [5586, 5959, 6332, 6705, 7078, 7451, 7824, 8197, 8570, 8943, 9316, 9689, 10062, 10435, 10808, 11181]
+
+def multilabelize(metadata):
+    def mult_sbox_mask_f(metadata, target_byte, alpha, beta):
+    
+        ind = permIndices(target_byte, metadata["masks"][:, 0], metadata["masks"][:, 1], metadata["masks"][:, 2], metadata["masks"][:, 3])
+        #indB = permIndices(ind, metadata["masks"][:, 0], metadata["masks"][:, 1], metadata["masks"][:, 2], metadata["masks"][:, 3])
+        plaintext = metadata["plaintext"][np.arange(len(metadata["plaintext"])), ind]
+        key = metadata["key"][np.arange(len(metadata["key"])), ind]
+        #mask = metadata["masks"][np.arange(len(metadata["masks"])), indB]
+        # rin = metadata["masks"][np.arange(len(metadata["masks"])), 16]
+        add_round = plaintext ^ key
+        S = np.array(aes_sbox[add_round], dtype=np.uint8)
+        temp = np.vectorize(multGF256)(alpha, S) ^ beta
+        #print(temp.shape)
+        return temp
+
+
+    def sbox_raw(metadata, target_byte):
+        ind = permIndices(target_byte, metadata["masks"][:, 0], metadata["masks"][:, 1], metadata["masks"][:, 2], metadata["masks"][:, 3])
+        plaintext = metadata["plaintext"][np.arange(len(metadata["plaintext"])), ind]
+        key = metadata["key"][np.arange(len(metadata["key"])), ind]
+        add_round = plaintext ^ key
+        S = np.array(aes_sbox[add_round], dtype=np.uint8)
+        return S
+    
+
+    def mult_sbox_mask_with_perm_f(metadata, target_byte, alpha, beta):
+        add_round = metadata["plaintext"][:, target_byte]^metadata["key"][:, target_byte]
+        # print(add_round.shape)
+        S = aes_sbox[add_round]
+        temp = np.vectorize(multGF256)(alpha, S) ^ beta
+        # print(temp.shape)
+        return temp
+
+    def permind_f(metadata, target_byte):
+        ind =  permIndices(target_byte, metadata["masks"][:, 0], metadata["masks"][:, 1], metadata["masks"][:, 2], metadata["masks"][:, 3])
+        return ind
+
+    def alpha_mask_f(data):
+        alpha = data["masks"][18]
+        return alpha
+
+    def beta_mask_f(data):
+        beta = data["masks"][17]
+        return beta
+
+   # y_alpha = np.array([alpha_mask_f(d) for d in metadata])
+    #print(y_alpha)
+    # y_beta = np.array([beta_mask_f(d) for d in metadata])
+    y_alpha = metadata["masks"][:, 18]
+    y_beta = metadata["masks"][:, 17]
+    r_in = metadata["masks"][:, 16]
+    #indices = permIndices(metadata["masks"][:, 0], metadata["masks"][:, 1], metadata["masks"][:, 2], metadata["masks"][:, 3])
+    y_raw = []
+    y_sbox = []
+    #print("lol1")
+    y_sbox_with_perm = []
+    y_permind = []
+
+    for i in range(16):
+        y_sbox.append(np.array(mult_sbox_mask_f(metadata, i, y_alpha, y_beta)))
+        y_sbox_with_perm.append(mult_sbox_mask_with_perm_f(metadata, i, y_alpha, y_beta))
+        y_permind.append(np.array(permind_f(metadata, i)))
+        y_raw.append(np.array(sbox_raw(metadata, i)))
+        #print("lo1e1")
+    y_sbox = np.transpose(y_sbox)
+    y_raw = np.transpose(y_raw)
+    y_sbox_with_perm = np.transpose(y_sbox_with_perm)
+    y_permind = np.transpose(y_permind)
+    #print(y_permind.shape)
+    #print("lol3")
+    multilabel_type = np.dtype([("alpha_mask", np.uint8, (1,)),
+                    ("beta_mask", np.uint8, (1,)),
+                    ("sbox_masked", np.uint8, (16,)),
+                    ("sbox_raw", np.uint8, (16,)),
+                    ("sbox_masked_with_perm", np.uint8, (16,)),
+                    ("perm_index", np.uint8, (16,))])
+    multilabel = np.array([(y_alpha[n], y_beta[n], y_sbox[n], y_raw[n],  y_sbox_with_perm[n], y_permind[n]) for n in range(len(y_alpha))],  dtype=multilabel_type)
+    return y_alpha, y_beta, y_sbox, y_raw, y_sbox_with_perm, y_permind
 
 class ReadASCADv2:
 
+    
     def __init__(self, n_profiling, n_validation, n_attack, target_byte, leakage_model, file_path, first_sample=0, number_of_samples=700):
         self.name = "ascadv2"
         self.n_profiling = n_profiling
@@ -150,13 +231,22 @@ class ReadASCADv2:
 
     def load_dataset(self):
         in_file = h5py.File(self.file_path, "r")
-
+        #print(1)
         attack_plaintext = in_file['Attack_traces/metadata']['plaintext']
         attack_key = in_file['Attack_traces/metadata']['key']
         attack_mask = in_file['Attack_traces/metadata']['masks']
         profiling_plaintexts = in_file['Profiling_traces/metadata']['plaintext']
         profiling_key = in_file['Profiling_traces/metadata']['key']
         profiling_mask = in_file['Profiling_traces/metadata']['masks']
+        y_alpha, y_beta, y_sbox, y_raw, y_sbox_with_perm, y_permind = multilabelize(in_file['Profiling_traces/metadata'])    
+        y_alpha_att, y_beta_att, y_sbox_att, y_raw_att, y_sbox_with_perm_att, y_permind_att = multilabelize(in_file['Attack_traces/metadata'])
+
+        self.share1_profiling = y_alpha[:self.n_profiling]
+        self.share2_profiling = y_beta[:self.n_profiling]
+        self.share3_profiling = y_sbox[:self.n_profiling]
+        self.share1_attack = y_alpha_att[:self.n_attack]
+        self.share2_attack= y_beta_att[:self.n_attack]
+        self.share3_attack = y_sbox_att[:self.n_attack]
 
         attack_plaintexts = attack_plaintext[:self.n_attack]
         attack_keys = attack_key[:self.n_attack]
@@ -168,12 +258,13 @@ class ReadASCADv2:
 
         label_type = "third_order"
         order = 3
-        file_labels_profiling = h5py.File('/tudelft.net/staff-umbrella/dlsca/Guilherme/ascadv2-labels-Profiling_traces.h5', "r")
-        file_labels_attack = h5py.File('/tudelft.net/staff-umbrella/dlsca/Guilherme/ascadv2-labels-Attack_traces.h5', "r")
-        self.profiling_labels = np.array(file_labels_profiling[f'Profiling_traces/labels_{label_type}'])[:, self.target_byte]
+
+        # file_labels_profiling = h5py.File('/tudelft.net/staff-umbrella/dlsca/Guilherme/ascadv2-labels-Profiling_traces.h5', "r")
+        # file_labels_attack = h5py.File('/tudelft.net/staff-umbrella/dlsca/Guilherme/ascadv2-labels-Attack_traces.h5', "r")
+        self.profiling_labels = np.array(y_raw)[:, self.target_byte]
         self.validation_labels = self.profiling_labels[self.n_profiling:self.n_profiling + self.n_validation]
         self.profiling_labels = self.profiling_labels[:self.n_profiling]
-        self.attack_labels = np.array(file_labels_attack[f'Attack_traces/labels_{label_type}'])[:, self.target_byte]
+        self.attack_labels = np.array(y_raw_att)[:, self.target_byte]
 
         if self.leakage_model == "HW":
             self.profiling_labels = [bin(int(iv)).count("1") for iv in self.profiling_labels]
@@ -187,33 +278,53 @@ class ReadASCADv2:
         self.labels_key_hypothesis_validation = self.create_labels_key_guess(validation_plaintexts, validation_keys, validation_masks,
                                                                              leakage_order=order)
         self.labels_key_hypothesis_attack = self.create_labels_key_guess(attack_plaintexts, attack_keys, attack_masks, leakage_order=order)
+        if self.ns == 2000:
+            profiling_traces_part1 = in_file['Profiling_traces/traces'][:,
+                                    range_1_dict[self.target_byte]:range_1_dict[self.target_byte] + 500]
+            profiling_traces_part2 = in_file['Profiling_traces/traces'][:, 11250:11750]
+            profiling_traces_part3 = in_file['Profiling_traces/traces'][:, 0:1000]
+            self.x_profiling = np.concatenate((profiling_traces_part1, profiling_traces_part2), axis=1)
+            self.x_profiling = np.concatenate((profiling_traces_part3, self.x_profiling), axis=1)
 
-        profiling_traces_part1 = in_file['Profiling_traces/traces'][:,
-                                 range_1_dict[self.target_byte]:range_1_dict[self.target_byte] + 500]
-        profiling_traces_part2 = in_file['Profiling_traces/traces'][:, 11250:11750]
-        profiling_traces_part3 = in_file['Profiling_traces/traces'][:, 0:1000]
-        self.x_profiling = np.concatenate((profiling_traces_part1, profiling_traces_part2), axis=1)
-        self.x_profiling = np.concatenate((profiling_traces_part3, self.x_profiling), axis=1)
+            self.x_validation = self.x_profiling[self.n_profiling:self.n_profiling + self.n_validation]
+            self.x_profiling = self.x_profiling[:self.n_profiling]
 
-        self.x_validation = self.x_profiling[self.n_profiling:self.n_profiling + self.n_validation]
-        self.x_profiling = self.x_profiling[:self.n_profiling]
+            attack_traces_part1 = in_file['Attack_traces/traces'][:, range_1_dict[self.target_byte]:range_1_dict[self.target_byte] + 500]
+            attack_traces_part2 = in_file['Attack_traces/traces'][:, 11250:11750]
+            attack_traces_part3 = in_file['Attack_traces/traces'][:, 0:1000]
+            self.x_attack = np.concatenate((attack_traces_part1, attack_traces_part2), axis=1)
+            self.x_attack = np.concatenate((attack_traces_part3, self.x_attack), axis=1)
+        elif self.ns == 15000:
+            self.x_profiling = np.array(in_file['Profiling_traces/traces'][:self.n_profiling])
+            self.x_validation = np.array(in_file['Profiling_traces/traces'][self.n_profiling:self.n_profiling + self.n_validation])
+            self.x_attack = np.array(in_file['Attack_traces/traces'][:self.n_attack])
 
-        attack_traces_part1 = in_file['Attack_traces/traces'][:, range_1_dict[self.target_byte]:range_1_dict[self.target_byte] + 500]
-        attack_traces_part2 = in_file['Attack_traces/traces'][:, 11250:11750]
-        attack_traces_part3 = in_file['Attack_traces/traces'][:, 0:1000]
-        self.x_attack = np.concatenate((attack_traces_part1, attack_traces_part2), axis=1)
-        self.x_attack = np.concatenate((attack_traces_part3, self.x_attack), axis=1)
+        elif self.ns == 500:
+            self.x_profiling = np.array(in_file['Profiling_traces/traces'][:self.n_profiling,  range_1_dict[self.target_byte]:range_1_dict[self.target_byte] + 500])
+            self.x_validation = np.array(in_file['Profiling_traces/traces'][self.n_profiling:self.n_profiling + self.n_validation,  range_1_dict[self.target_byte]:range_1_dict[self.target_byte] + 500])
+            self.x_attack = np.array(in_file['Attack_traces/traces'][:self.n_attack,  range_1_dict[self.target_byte]:range_1_dict[self.target_byte] + 500])
+
+        elif self.ns == 1600:
+            self.x_profiling = np.array(in_file['Profiling_traces/traces'][:self.n_profiling,  end_idx[0]-100:end_idx[0]])
+            self.x_validation = np.array(in_file['Profiling_traces/traces'][self.n_profiling:self.n_profiling+self.n_validation,  end_idx[0]-100:end_idx[0]])
+            self.x_attack = np.array(in_file['Attack_traces/traces'][:self.n_attack,  end_idx[0]-100:end_idx[0]])
+            for i in range(1, 16):
+                self.x_profiling = np.concatenate((self.x_profiling, np.array(in_file['Profiling_traces/traces'][:self.n_profiling,  end_idx[i]-100:end_idx[i]])),axis=1)
+                self.x_validation = np.concatenate((self.x_validation, np.array(in_file['Profiling_traces/traces'][self.n_profiling:self.n_profiling+self.n_validation, end_idx[i]-100:end_idx[i]])), axis=1)
+                self.x_attack = np.concatenate((self.x_attack, np.array(in_file['Attack_traces/traces'][:self.n_attack,  end_idx[i]-100:end_idx[i]])),axis=1)
+                
+
 
     def rescale(self, reshape_to_cnn):
         scaler = StandardScaler()
         self.x_profiling = scaler.fit_transform(self.x_profiling)
-        self.x_validation = scaler.transform(self.x_validation)
+        #self.x_validation = scaler.transform(self.x_validation)
         self.x_attack = scaler.transform(self.x_attack)
 
         if reshape_to_cnn:
             print("reshaping to 3 dims")
             self.x_profiling = self.x_profiling.reshape((self.x_profiling.shape[0], self.x_profiling.shape[1], 1))
-            self.x_validation = self.x_validation.reshape((self.x_validation.shape[0], self.x_validation.shape[1], 1))
+            #self.x_validation = self.x_validation.reshape((self.x_validation.shape[0], self.x_validation.shape[1], 1))
             self.x_attack = self.x_attack.reshape((self.x_attack.shape[0], self.x_attack.shape[1], 1))
 
     def create_labels_key_guess(self, plaintexts, keys, masks, shuffling=False, leakage_order=3):

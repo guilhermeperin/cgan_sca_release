@@ -6,7 +6,9 @@ from src.datasets.load_eshard import *
 from src.datasets.load_spook_sw3 import *
 from src.datasets.load_aes_hd_mm import *
 from src.datasets.simulate_higher_order import *
+from src.datasets.load_ascadv2 import *
 from src.datasets.paths import *
+import tensorflow as tf
 from os.path import exists
 from utils import *
 
@@ -32,14 +34,30 @@ class PrepareDatasets:
         self.dataset_reference.x_profiling, self.dataset_reference.x_attack = self.scale_dataset(self.dataset_reference.x_profiling,
                                                                                                  self.dataset_reference.x_attack,
                                                                                                  StandardScaler())
-        self.dataset_target.x_profiling, self.dataset_target.x_attack = self.scale_dataset(self.dataset_target.x_profiling,
-                                                                                           self.dataset_target.x_attack,
-                                                                                           StandardScaler())
-
+        if not self.dataset_target.name =="spook_sw3":        
+            self.dataset_target.x_profiling, self.dataset_target.x_attack = self.scale_dataset(self.dataset_target.x_profiling,
+                                                                                                 self.dataset_target.x_attack,
+                                                                                                 StandardScaler())
         self.features_reference_profiling, self.features_reference_attack = self.dataset_reference.x_profiling, self.dataset_reference.x_attack
+        if self.dataset_target.name == "ascadv2":
+            root_path = args["dataset_root_path"]
+            dif_folder ="diffusion_ascadv2_22_11_2023_07_22_04_1057297"
+            dif_mod = tf.keras.models.load_model(f"{root_path}/paper_10_diffussion_results/{dif_folder}/trained_model.keras")
+            dif_mod = tf.keras.models.Model(inputs=dif_mod.inputs, outputs=dif_mod.layers[-3].output)
+
+            self.dataset_target.x_profiling = dif_mod.predict([self.dataset_target.x_profiling, np.ones(self.dataset_target.x_profiling.shape[0])*0])
+            self.dataset_target.x_attack = dif_mod.predict([self.dataset_target.x_attack, np.ones(self.dataset_target.x_attack.shape[0])*0])
+            args["dataset_target_dim"] = self.dataset_target.x_profiling.shape[1]
+            self.dataset_target.x_profiling, self.dataset_target.x_attack = self.scale_dataset(self.dataset_target.x_profiling,
+                                                                                                 self.dataset_target.x_attack,
+                                                                                                 StandardScaler())
 
         """ the following is used only for verification, not in the CGAN training """
-        self.features_target_profiling, self.features_target_attack = get_features(self.dataset_target,
+        if self.dataset_target.name == "ches_ctf" or self.dataset_target.name=="ascadv2":
+            
+            pass
+        else:
+            self.features_target_profiling, self.features_target_attack = get_features(self.dataset_target,
                                                                                    self.target_byte_target,
                                                                                    n_poi=self.features_dim)
 
@@ -64,12 +82,12 @@ class PrepareDatasets:
         if identifier == "ascad-variable":
             dataset = ReadASCADr(n_prof, n_val, n_attack, target_byte, args["leakage_model"], dataset_file, number_of_samples=traces_dim)
         if identifier == "simulate":
-            order = 2 if args["dataset_target"] == "spook_sw3" else 1
+            order = 2 if args["dataset_target"] in ["spook_sw3", "ascadv2"] else 1
             informative = args["features"]//(order+1) if args["feature_select"]== "snr" else 100
+            #informative = informative if not args["dataset_target"]=="ascadv2" else 50
             total =  args["features"] if args["feature_select"]== "snr" else (100 * (order+1))
             print(informative, total)
             dataset = SimulateHigherOrder(args, order, n_prof, n_attack, informative, total)
-            
             if args["feature_select"]== "pca":
                 dataset.x_profiling, dataset.x_attack = get_pca_features(dataset, 0, num_features)
             elif args["feature_select"]== "lda":
@@ -87,6 +105,12 @@ class PrepareDatasets:
             dataset = ReadAESHDMM(n_prof, n_val, n_attack, target_byte, args["leakage_model"], dataset_file, number_of_samples=traces_dim)
         if identifier == "spook_sw3":
                  return ReadSpookSW3(n_prof, n_val, n_attack, target_byte, args["leakage_model"], dataset_file,
+                                   number_of_samples=traces_dim)
+        if identifier == "ches_ctf":
+                 return ReadCHESCTF(n_prof, n_val, n_attack, target_byte, args["leakage_model"], dataset_file,
+                                   number_of_samples=traces_dim)
+        if identifier == "ascadv2":
+                 return ReadASCADv2(n_prof, n_val, n_attack, target_byte, args["leakage_model"], dataset_file,
                                    number_of_samples=traces_dim)
 
         if implement_reference_feature_selection:
@@ -146,7 +170,7 @@ class PrepareDatasets:
 
     def generate_features_h5(self, dataset, target_byte, save_file_path, feature_select):
         profiling_traces_rpoi, attack_traces_rpoi = None, None
-        """spook features generation doesnt  work"""
+        """spook features generation doesnt work"""
         if feature_select== "snr":
             profiling_traces_rpoi, attack_traces_rpoi = get_features(dataset, target_byte, self.features_dim)
         elif feature_select == "pca":
